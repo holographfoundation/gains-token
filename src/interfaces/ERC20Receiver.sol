@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.20;
+
+interface ERC20Receiver {
+    function onERC20Received(
+        address account,
+        address recipient,
+        uint256 amount,
+        bytes memory data
+    ) external returns (bytes4);
+}
