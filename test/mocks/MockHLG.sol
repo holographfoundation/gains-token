@@ -1,31 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-
 import "../../src/interfaces/HolographERC20Interface.sol";
-
+import "../../src/interfaces/ERC20Receiver.sol";
 /**
- * @title MockHLG
- * @notice A minimal mock to stand in for the real HolographUtilityToken in testing.
+ * @dev Minimal mock replicating key HolographERC20 logic:
+ *      1) Balances
+ *      2) Approvals
+ *      3) sourceBurn(msg.sender, amount) which reverts if allowance/balance is insufficient
+ *      4) Revert messages match the real contract:
+ *         - “ERC20: amount exceeds allowance”
+ *         - “ERC20: amount exceeds balance”
  */
-contract MockHLG is HolographERC20Interface, Test {
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals = 18;
+contract MockHLG is HolographERC20Interface {
+    string public name;
+    string public symbol;
+    uint8 public decimals = 18;
 
     mapping(address => uint256) internal _balanceOf;
     mapping(address => mapping(address => uint256)) internal _allowance;
-
+    mapping(address => uint256) private _nonces;
     uint256 internal _totalSupply;
 
-    constructor(string memory name_, string memory symbol_) {
-        _name = name_;
-        _symbol = symbol_;
+    // ERC-2612 typehash
+    bytes32 private constant PERMIT_TYPEHASH =
+        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+
+    constructor(string memory _name, string memory _symbol) {
+        name = _name;
+        symbol = _symbol;
     }
 
-    // ============ ERC20 Base Logic ============
-
+    // --------------------------------------------------
+    // ERC20-like basics
+    // --------------------------------------------------
     function totalSupply() external view returns (uint256) {
         return _totalSupply;
     }
@@ -34,27 +42,107 @@ contract MockHLG is HolographERC20Interface, Test {
         return _balanceOf[_owner];
     }
 
-    function transfer(address _to, uint256 _value) external returns (bool) {
-        revert("Not used in mock");
+    function transfer(address, uint256) external pure returns (bool) {
+        revert("Not needed in this mock");
     }
 
-    function transferFrom(address _from, address _to, uint256 _value) external returns (bool) {
-        revert("Not used in mock");
+    function transferFrom(address, address, uint256) external pure returns (bool) {
+        revert("Not needed in this mock");
     }
 
-    function approve(address _spender, uint256 _value) external returns (bool) {
-        _allowance[msg.sender][_spender] = _value;
+    function approve(address spender, uint256 amount) external returns (bool) {
+        _allowance[msg.sender][spender] = amount;
         return true;
     }
 
-    function allowance(address _owner, address _spender) external view returns (uint256) {
-        return _allowance[_owner][_spender];
+    function allowance(address owner, address spender) external view returns (uint256) {
+        return _allowance[owner][spender];
     }
 
-    // ============ ERC20Permit ============
+    // --------------------------------------------------
+    // Testing "Mint" to seed balances
+    // --------------------------------------------------
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function _mint(address to, uint256 amount) internal {
+        _balanceOf[to] += amount;
+        _totalSupply += amount;
+    }
+
+    // --------------------------------------------------
+    // The main calls GainsMigration does
+    // --------------------------------------------------
+
+    /**
+     * @notice Mirror real HolographERC20 “sourceBurn(address from, uint256 amount)”
+     *         Also replicate the real revert messages for allowance & balance checks.
+     */
+    function sourceBurn(address from, uint256 amount) external {
+        // 1) Check allowance
+        uint256 allowed = _allowance[from][msg.sender];
+        require(allowed >= amount, "ERC20: amount exceeds allowance");
+
+        // 2) Check balance
+        uint256 balance = _balanceOf[from];
+        require(balance >= amount, "ERC20: amount exceeds balance");
+
+        // Burn
+        _balanceOf[from] = balance - amount;
+        unchecked {
+            _totalSupply -= amount;
+        }
+    }
+
+    function sourceMint(address to, uint256 amount) external {
+        _mint(to, amount); // Reuse existing mint functionality
+    }
+
+    function sourceMintBatch(address[] calldata tos, uint256[] calldata amounts) external {
+        require(tos.length == amounts.length, "Length mismatch");
+        for(uint i = 0; i < tos.length; i++) {
+            _mint(tos[i], amounts[i]);
+        }
+    }
+
+    function sourceTransfer(address from, address to, uint256 amount) external {
+        require(_balanceOf[from] >= amount, "ERC20: amount exceeds balance");
+        _balanceOf[from] -= amount;
+        _balanceOf[to] += amount;
+    }
+
+    function sourceTransfer(address payable to, uint256 amount) external {
+        bool success = to.send(amount);
+        require(success, "Transfer failed");
+    }
+
+    function sourceExternalCall(address target, bytes calldata data) external {
+        // Basic target contract call
+        (bool success, ) = target.call(data);
+        require(success, "External call failed");
+    }
+
+    // --------------------------------------------------
+    // Additional HolographERC20Interface stubs
+    // --------------------------------------------------
+
+    function holographBridgeMint(address to, uint256 amount) external returns (bytes4) {
+        _mint(to, amount);
+        return this.holographBridgeMint.selector;
+    }
+
+    // EIP-2612 and domain
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return keccak256("MockHLG"); // Simplified for mock
+    }
+
+    function nonces(address account) external view returns (uint256) {
+        return _nonces[account];
+    }
 
     function permit(
-        address account,
+        address owner,
         address spender,
         uint256 value,
         uint256 deadline,
@@ -62,64 +150,50 @@ contract MockHLG is HolographERC20Interface, Test {
         bytes32 r,
         bytes32 s
     ) external {
-        revert("Not implemented in mock");
+        require(deadline >= block.timestamp, "Permit expired");
+        _nonces[owner]++;
+        _allowance[owner][spender] = value;
     }
 
-    function nonces(address account) external view returns (uint256) {
-        revert("Not implemented in mock");
+    // ERC20 Safer functions
+    function _safeTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
+        require(_balanceOf[sender] >= amount, "ERC20: amount exceeds balance");
+        _balanceOf[sender] -= amount;
+        _balanceOf[recipient] += amount;
+        return true;
     }
-
-    function DOMAIN_SEPARATOR() external view returns (bytes32) {
-        revert("Not implemented in mock");
-    }
-
-    // ============ Holographable ============
-
-    function bridgeIn(uint32 fromChain, bytes calldata payload) external returns (bytes4) {
-        return this.bridgeIn.selector;
-    }
-
-    function bridgeOut(
-        uint32 toChain,
-        address sender,
-        bytes calldata payload
-    ) external returns (bytes4 selector, bytes memory data) {
-        revert("Not used in mock");
-    }
-
-    // ============ ERC20Burnable ============
-
-    function burn(uint256 amount) external {
-        revert("Not used in mock");
-    }
-
-    function burnFrom(address account, uint256 amount) external returns (bool) {
-        revert("Not used in mock");
-    }
-
-    // ============ ERC20Receiver ============
-
-    function onERC20Received(
-        address account,
-        address recipient,
-        uint256 amount,
-        bytes memory data
-    ) external returns (bytes4) {
-        revert("Not used in mock");
-    }
-
-    // ============ ERC20Safer ============
 
     function safeTransfer(address recipient, uint256 amount) external returns (bool) {
-        revert("Not used in mock");
+        return _safeTransfer(msg.sender, recipient, amount);
     }
 
     function safeTransfer(address recipient, uint256 amount, bytes memory data) external returns (bool) {
-        revert("Not used in mock");
+        _safeTransfer(msg.sender, recipient, amount);
+        if (recipient.code.length > 0) {
+            require(
+                ERC20Receiver(recipient).onERC20Received(msg.sender, msg.sender, amount, data) ==
+                    ERC20Receiver.onERC20Received.selector,
+                "ERC20: transfer rejected"
+            );
+        }
+        return true;
+    }
+
+    function _safeTransferFrom(
+        address sender,
+        address account,
+        address recipient,
+        uint256 amount
+    ) internal returns (bool) {
+        require(_allowance[account][sender] >= amount, "ERC20: amount exceeds allowance");
+        _allowance[account][sender] -= amount;
+        _balanceOf[account] -= amount;
+        _balanceOf[recipient] += amount;
+        return true;
     }
 
     function safeTransferFrom(address account, address recipient, uint256 amount) external returns (bool) {
-        revert("Not used in mock");
+        return _safeTransferFrom(msg.sender, account, recipient, amount);
     }
 
     function safeTransferFrom(
@@ -128,75 +202,60 @@ contract MockHLG is HolographERC20Interface, Test {
         uint256 amount,
         bytes memory data
     ) external returns (bool) {
-        revert("Not used in mock");
+        _safeTransferFrom(msg.sender, account, recipient, amount);
+        if (recipient.code.length > 0) {
+            require(
+                ERC20Receiver(recipient).onERC20Received(msg.sender, account, amount, data) ==
+                    ERC20Receiver.onERC20Received.selector,
+                "ERC20: transfer rejected"
+            );
+        }
+        return true;
     }
 
-    // ============ ERC165 ============
-
-    function supportsInterface(bytes4 interfaceID) external view returns (bool) {
-        return false;
-    }
-
-    // ============ Additional Functions ============
-
-    /**
-     * @notice "Mint" some HLG for testing
-     */
-    function mint(address to, uint256 amount) external {
-        _balanceOf[to] += amount;
-        _totalSupply += amount;
-    }
-
-    // ============ HolographERC20Interface ============
-
-    // we don’t implement bridging logic here. This is for local chain test only.
-
-    function holographBridgeMint(address, uint256) external returns (bytes4) {
-        revert("Not used in this mock");
-    }
-
-    function sourceBurn(address from, uint256 amount) external {
-        // Check allowance
-        require(_allowance[from][msg.sender] >= amount, "ERC20: insufficient allowance");
-        // Check balance
-        require(_balanceOf[from] >= amount, "HLG: insufficient balance");
-
-        // "burn"
-        _balanceOf[from] -= amount;
+    // ERC20 Burnable functions
+    function burn(uint256 amount) external {
+        require(_balanceOf[msg.sender] >= amount, "ERC20: amount exceeds balance");
+        _balanceOf[msg.sender] -= amount;
         _totalSupply -= amount;
     }
 
-    function sourceMint(address, uint256) external {
-        revert("Not used in this mock");
+    function burnFrom(address account, uint256 amount) external returns (bool) {
+        require(_allowance[account][msg.sender] >= amount, "ERC20: amount exceeds allowance");
+        require(_balanceOf[account] >= amount, "ERC20: amount exceeds balance");
+        _allowance[account][msg.sender] -= amount;
+        _balanceOf[account] -= amount;
+        _totalSupply -= amount;
+        return true;
     }
 
-    function sourceMintBatch(address[] calldata, uint256[] calldata) external {
-        revert("Not used in this mock");
+    // Bridge functions
+    function bridgeIn(uint32 fromChain, bytes calldata payload) external returns (bytes4) {
+        // Basic mock that accepts all bridge-ins
+        return this.bridgeIn.selector;
     }
 
-    function sourceTransfer(address, address, uint256) external {
-        revert("Not used in this mock");
+    function bridgeOut(
+        uint32 toChain,
+        address sender,
+        bytes calldata payload
+    ) external returns (bytes4 selector, bytes memory data) {
+        // Basic mock that accepts all bridge-outs
+        return (this.bridgeOut.selector, payload);
     }
 
-    function sourceTransfer(address payable, uint256) external {
-        revert("Not used in this mock");
+    // ERC20 Receiver
+    function onERC20Received(
+        address operator,
+        address from,
+        uint256 amount,
+        bytes memory data
+    ) external returns (bytes4) {
+        return this.onERC20Received.selector;
     }
 
-    function sourceExternalCall(address, bytes calldata) external {
-        revert("Not used in this mock");
-    }
-
-    // ============ ERC20Metadata ============
-
-    function name() external view returns (string memory) {
-        return _name;
-    }
-
-    function symbol() external view returns (string memory) {
-        return _symbol;
-    }
-
-    function decimals() external view returns (uint8) {
-        return _decimals;
+    // ERC165
+    function supportsInterface(bytes4 interfaceID) external view returns (bool) {
+        return interfaceID == type(HolographERC20Interface).interfaceId;
     }
 }

@@ -15,7 +15,7 @@ contract GainsMigration {
     event Migrated(address indexed user, uint256 amount);
 
     /**
-     * @param _hlg Address of the deployed HLG (HolographUtilityToken) contract.
+     * @param _hlg Address of the deployed HLG (HolographUtilityToken) contract proxy.
      * @param _gains Address of the deployed GAINS (OFT) contract.
      */
     constructor(address _hlg, address _gains) {

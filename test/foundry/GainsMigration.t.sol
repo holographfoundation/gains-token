@@ -2,21 +2,21 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-
 import "@layerzerolabs/test-devtools-evm-foundry/contracts/mocks/EndpointV2Mock.sol";
 
-import "../../src/GainsMigration.sol";
 import "../../src/GAINS.sol";
-import "../mocks/MockHLG.sol"; // Minimal mock implementing HolographERC20Interface
+import "../../src/GainsMigration.sol";
+import "../mocks/MockHLG.sol"; // The minimal mock
 
 /**
  * @title GainsMigrationTest
- * @notice Full test suite covering local chain migration from HLG to GAINS.
+ * @notice Tests GainsMigration + GAINS in a scenario close to production,
+ *         using MockHLG to replicate real HolographUtilityToken behavior.
  */
 contract GainsMigrationTest is Test {
     event Migrated(address indexed user, uint256 amount);
 
-    // ============ Contracts and addresses ============
+    // Contracts
     MockHLG internal hlg;
     GAINS internal gains;
     GainsMigration internal migration;
@@ -27,56 +27,58 @@ contract GainsMigrationTest is Test {
     address internal alice = address(0xAAAAA);
     address internal bob = address(0xBBBBB);
 
-    // Sample amounts
+    // Starting amounts
     uint256 internal ALICE_STARTING_HLG = 10_000 ether;
     uint256 internal BOB_STARTING_HLG = 5_000 ether;
 
-    // ============ Setup ============
+    // ------------------------------------
+    // Setup
+    // ------------------------------------
     function setUp() public {
-        // Label addresses in Foundry traces
         vm.label(owner, "Owner");
         vm.label(alice, "Alice");
         vm.label(bob, "Bob");
 
-        // Deploy a minimal mock of HLG (implements HolographERC20Interface)
+        // 1) Deploy minimal MockHLG to replicate real HolographUtilityToken logic
         hlg = new MockHLG("Holograph Utility Token", "HLG");
-        vm.label(address(hlg), "HLG");
+        vm.label(address(hlg), "MockHLG");
 
-        // Deploy mock endpoint
+        // 2) Deploy mock endpoint for GAINS
         endpoint = new EndpointV2Mock(1, address(this));
-        vm.label(address(endpoint), "LZEndpoint");
+        vm.label(address(endpoint), "EndpointV2Mock");
 
-        // Deploy GAINS, setting the owner to `owner`
+        // 3) Deploy GAINS (OFT)
         vm.prank(owner);
         gains = new GAINS("GAINS", "GAINS", address(endpoint), owner);
         vm.label(address(gains), "GAINS");
 
-        // Deploy GainsMigration referencing HLG and GAINS
+        // 4) Deploy GainsMigration referencing hlg + GAINS
         migration = new GainsMigration(address(hlg), address(gains));
         vm.label(address(migration), "GainsMigration");
 
-        // As the GAINS owner, set the migration contract
+        // 5) As GAINS owner, allow GainsMigration to mint GAINS
         vm.prank(owner);
         gains.setMigrationContract(address(migration));
 
-        // For testing, we give Alice and Bob some HLG
-        // We'll just "mint" them HLG in the mock
+        // 6) For local testing, mint some HLG to alice + bob
         hlg.mint(alice, ALICE_STARTING_HLG);
         hlg.mint(bob, BOB_STARTING_HLG);
     }
 
-    // ============ Tests: GainsMigration ============
+    // ------------------------------------
+    // TESTS
+    // ------------------------------------
 
     /**
-     * @notice Test the overall happy path: user approves GainsMigration, migrates HLG -> GAINS.
+     * @notice Basic migration scenario: user approves GainsMigration, calls migrate, HLG is burned, GAINS is minted.
      */
     function test_migrate_HappyPath() public {
-        // Pre-check initial balances
+        // Check initial
         assertEq(hlg.balanceOf(alice), ALICE_STARTING_HLG);
         assertEq(gains.balanceOf(alice), 0);
 
-        // Setup: Alice approves GainsMigration
-        uint256 amount = 1_000 ether;
+        // Approve
+        uint256 amount = 1000 ether;
         vm.startPrank(alice);
         hlg.approve(address(migration), amount);
 
@@ -84,52 +86,39 @@ contract GainsMigrationTest is Test {
         migration.migrate(amount);
         vm.stopPrank();
 
-        // GainsMigration calls:
-        //  1. hlg.sourceBurn(alice, amount)
-        //  2. gains.mintForMigration(alice, amount)
-
-        // Post-check: HLG burned from Alice
+        // Post-check
         assertEq(hlg.balanceOf(alice), ALICE_STARTING_HLG - amount);
-        // Post-check: GAINS minted to Alice
         assertEq(gains.balanceOf(alice), amount);
     }
 
     /**
-     * @notice Test migration fails if user didn't approve the GainsMigration contract on HLG.
+     * @notice If user doesn’t approve GainsMigration, the burn fails with “ERC20: amount exceeds allowance.”
      */
     function test_migrate_Revert_NoApproval() public {
-        // Try migrating without approving
         vm.startPrank(alice);
-        vm.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert("ERC20: amount exceeds allowance");
         migration.migrate(1_000 ether);
         vm.stopPrank();
     }
 
     /**
-     * @notice Test that GainsMigration cannot mint more GAINS than user has HLG (i.e. if user’s HLG was insufficient).
+     * @notice If user tries migrating more than they hold, the burn fails with “ERC20: amount exceeds balance.”
      */
-    function test_migrate_Revert_InsufficientHLGBalance() public {
-        // If user tries to migrate more than they hold
-        uint256 migrateAmount = ALICE_STARTING_HLG + 1 ether;
-
+    function test_migrate_Revert_InsufficientBalance() public {
+        uint256 tooMuch = ALICE_STARTING_HLG + 1 ether;
         vm.startPrank(alice);
-        // Approve GainsMigration for the big amount
-        hlg.approve(address(migration), migrateAmount);
-        // Expect revert from the mock: "HLG: insufficient balance"
-        vm.expectRevert("HLG: insufficient balance");
-        migration.migrate(migrateAmount);
-        vm.stopPrank();
+        hlg.approve(address(migration), tooMuch);
 
-        // Confirm Alice still has the same amount of HLG
-        assertEq(hlg.balanceOf(alice), ALICE_STARTING_HLG);
+        // Real contract reverts with “ERC20: amount exceeds balance”
+        vm.expectRevert("ERC20: amount exceeds balance");
+        migration.migrate(tooMuch);
+        vm.stopPrank();
     }
 
     /**
-     * @notice Test that GainsMigration only mints GAINS if the `mintForMigration` call is from GainsMigration.
-     *         This covers the scenario where a random user tries to call `mintForMigration` directly on GAINS.
+     * @notice GainsMigration is the only contract allowed to call GAINS.mintForMigration
      */
     function test_mintForMigration_RevertIfNotMigrationContract() public {
-        // Attempt direct call to GAINS.mintForMigration by a random user
         vm.startPrank(alice);
         vm.expectRevert("GAINS: not migration contract");
         gains.mintForMigration(alice, 1_000 ether);
@@ -137,7 +126,7 @@ contract GainsMigrationTest is Test {
     }
 
     /**
-     * @notice Test that only the GAINS owner can set the migration contract.
+     * @notice Only GAINS owner can set the GainsMigration contract
      */
     function test_setMigrationContract_RevertIfNotOwner() public {
         vm.startPrank(alice);
@@ -147,10 +136,10 @@ contract GainsMigrationTest is Test {
     }
 
     /**
-     * @notice Test that the GainsMigration emits the Migrated event with correct data.
+     * @notice Confirm GainsMigration emits the Migrated event with correct args
      */
     function test_migrate_EventEmission() public {
-        // Approve GainsMigration
+        // Approve first
         vm.startPrank(alice);
         hlg.approve(address(migration), 500 ether);
 
