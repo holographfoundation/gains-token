@@ -5,21 +5,21 @@ import "forge-std/Test.sol";
 import "@layerzerolabs/test-devtools-evm-foundry/contracts/mocks/EndpointV2Mock.sol";
 
 import "../../src/GAINS.sol";
-import "../../src/GainsMigration.sol";
+import "../../src/MigrateToGAINS.sol";
 import "../mocks/MockHLG.sol"; // The minimal mock
 
 /**
- * @title GainsMigrationTest
- * @notice Tests GainsMigration + GAINS in a scenario close to production,
+ * @title MigrateToGAINSTest
+ * @notice Tests MigrateToGAINS + GAINS in a scenario close to production,
  *         using MockHLG to replicate real HolographUtilityToken behavior.
  */
-contract GainsMigrationTest is Test {
+contract MigrateToGAINSTest is Test {
     event Migrated(address indexed user, uint256 amount);
 
     // Contracts
     MockHLG internal hlg;
     GAINS internal gains;
-    GainsMigration internal migration;
+    MigrateToGAINS internal migration;
     EndpointV2Mock internal endpoint;
 
     // Test users
@@ -52,11 +52,11 @@ contract GainsMigrationTest is Test {
         gains = new GAINS("GAINS", "GAINS", address(endpoint), owner);
         vm.label(address(gains), "GAINS");
 
-        // 4) Deploy GainsMigration referencing hlg + GAINS
-        migration = new GainsMigration(address(hlg), address(gains));
-        vm.label(address(migration), "GainsMigration");
+        // 4) Deploy MigrateToGAINS referencing hlg + GAINS
+        migration = new MigrateToGAINS(address(hlg), address(gains));
+        vm.label(address(migration), "MigrateToGAINS");
 
-        // 5) As GAINS owner, allow GainsMigration to mint GAINS
+        // 5) As GAINS owner, allow MigrateToGAINS to mint GAINS
         vm.prank(owner);
         gains.setMigrationContract(address(migration));
 
@@ -70,7 +70,7 @@ contract GainsMigrationTest is Test {
     // ------------------------------------
 
     /**
-     * @notice Basic migration scenario: user approves GainsMigration, calls migrate, HLG is burned, GAINS is minted.
+     * @notice Basic migration scenario: user approves MigrateToGAINS, calls migrate, HLG is burned, GAINS is minted.
      */
     function test_migrate_HappyPath() public {
         // Check initial
@@ -92,7 +92,7 @@ contract GainsMigrationTest is Test {
     }
 
     /**
-     * @notice If user doesn’t approve GainsMigration, the burn fails with “ERC20: amount exceeds allowance.”
+     * @notice If user doesn’t approve MigrateToGAINS, the burn fails with “ERC20: amount exceeds allowance.”
      */
     function test_migrate_Revert_NoApproval() public {
         vm.startPrank(alice);
@@ -116,7 +116,7 @@ contract GainsMigrationTest is Test {
     }
 
     /**
-     * @notice GainsMigration is the only contract allowed to call GAINS.mintForMigration
+     * @notice MigrateToGAINS is the only contract allowed to call GAINS.mintForMigration
      */
     function test_mintForMigration_RevertIfNotMigrationContract() public {
         vm.startPrank(alice);
@@ -126,7 +126,7 @@ contract GainsMigrationTest is Test {
     }
 
     /**
-     * @notice Only GAINS owner can set the GainsMigration contract
+     * @notice Only GAINS owner can set the MigrateToGAINS contract
      */
     function test_setMigrationContract_RevertIfNotOwner() public {
         vm.startPrank(alice);
@@ -136,7 +136,7 @@ contract GainsMigrationTest is Test {
     }
 
     /**
-     * @notice Confirm GainsMigration emits the Migrated event with correct args
+     * @notice Confirm MigrateToGAINS emits the Migrated event with correct args
      */
     function test_migrate_EventEmission() public {
         // Approve first

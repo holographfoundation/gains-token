@@ -72,7 +72,7 @@ contract MockHLG is HolographERC20Interface {
     }
 
     // --------------------------------------------------
-    // The main calls GainsMigration does
+    // The main calls MigrateToGAINS does
     // --------------------------------------------------
 
     /**
@@ -101,7 +101,7 @@ contract MockHLG is HolographERC20Interface {
 
     function sourceMintBatch(address[] calldata tos, uint256[] calldata amounts) external {
         require(tos.length == amounts.length, "Length mismatch");
-        for(uint i = 0; i < tos.length; i++) {
+        for (uint i = 0; i < tos.length; i++) {
             _mint(tos[i], amounts[i]);
         }
     }
