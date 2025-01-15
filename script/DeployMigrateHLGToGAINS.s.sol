@@ -17,16 +17,15 @@ import "../src/MigrateHLGToGAINS.sol";
  *     -vvvv
  */
 contract DeployMigrateHLGToGAINS is Script {
-    // Customize for your environment
     string public constant GAINS_NAME = "GAINS";
     string public constant GAINS_SYMBOL = "GAINS";
 
     // Fill in actual chain-specific values:
-    address public constant LZ_ENDPOINT = 0x1234567890123456789012345678901234567890; // e.g. for your chain
+    address public constant LZ_ENDPOINT = 0x1234567890123456789012345678901234567890; // e.g. for the deployment chain
     address public constant GAINS_OWNER = 0x111122223333444455556666777788889999AAAA; // e.g. a Gnosis Safe
 
-    // The deployed HLG address on this chain, if known in advance:
-    address public constant HLG_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // e.g. from your environment
+    // The deployed HLG address on the chain:
+    address public constant HLG_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // e.g. use env var
 
     // CREATE2 salt — must be consistent across all chains
     bytes32 public constant SALT_GAINS = keccak256("GAINS_SALT_V1");
