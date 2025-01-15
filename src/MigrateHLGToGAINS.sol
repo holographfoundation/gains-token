@@ -5,10 +5,10 @@ import "./interfaces/HolographERC20Interface.sol";
 import "./GAINS.sol";
 
 /**
- * @title MigrateToGAINS
+ * @title MigrateHLGToGAINS
  * @notice Burns HLG from a user, then mints GAINS (OFT) to the same user 1:1.
  */
-contract MigrateToGAINS {
+contract MigrateHLGToGAINS {
     HolographERC20Interface public immutable hlg;
     GAINS public immutable gains;
 

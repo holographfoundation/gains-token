@@ -5,21 +5,21 @@ import "forge-std/Test.sol";
 import "@layerzerolabs/test-devtools-evm-foundry/contracts/mocks/EndpointV2Mock.sol";
 
 import "../../src/GAINS.sol";
-import "../../src/MigrateToGAINS.sol";
-import "../mocks/MockHLG.sol"; // The minimal mock
+import "../../src/MigrateHLGToGAINS.sol";
+import "../mocks/MockHLG.sol"; // The minimal mock for HolographERC20Interface
 
 /**
- * @title MigrateToGAINSTest
- * @notice Tests MigrateToGAINS + GAINS in a scenario close to production,
+ * @title MigrateHLGToGAINSTest
+ * @notice Tests MigrateHLGToGAINS + GAINS in a scenario close to production,
  *         using MockHLG to replicate real HolographUtilityToken behavior.
  */
-contract MigrateToGAINSTest is Test {
+contract MigrateHLGToGAINSTest is Test {
     event Migrated(address indexed user, uint256 amount);
 
     // Contracts
     MockHLG internal hlg;
     GAINS internal gains;
-    MigrateToGAINS internal migration;
+    MigrateHLGToGAINS internal migration;
     EndpointV2Mock internal endpoint;
 
     // Test users
@@ -28,18 +28,19 @@ contract MigrateToGAINSTest is Test {
     address internal bob = address(0xBBBBB);
 
     // Starting amounts
-    uint256 internal ALICE_STARTING_HLG = 10_000 ether;
-    uint256 internal BOB_STARTING_HLG = 5_000 ether;
+    uint256 internal constant ALICE_STARTING_HLG = 10_000 ether;
+    uint256 internal constant BOB_STARTING_HLG = 5_000 ether;
 
     // ------------------------------------
     // Setup
     // ------------------------------------
     function setUp() public {
+        // Label addresses for better traceability
         vm.label(owner, "Owner");
         vm.label(alice, "Alice");
         vm.label(bob, "Bob");
 
-        // 1) Deploy minimal MockHLG to replicate real HolographUtilityToken logic
+        // 1) Deploy minimal MockHLG to replicate HolographUtilityToken behavior
         hlg = new MockHLG("Holograph Utility Token", "HLG");
         vm.label(address(hlg), "MockHLG");
 
@@ -52,15 +53,15 @@ contract MigrateToGAINSTest is Test {
         gains = new GAINS("GAINS", "GAINS", address(endpoint), owner);
         vm.label(address(gains), "GAINS");
 
-        // 4) Deploy MigrateToGAINS referencing hlg + GAINS
-        migration = new MigrateToGAINS(address(hlg), address(gains));
-        vm.label(address(migration), "MigrateToGAINS");
+        // 4) Deploy MigrateHLGToGAINS referencing MockHLG + GAINS
+        migration = new MigrateHLGToGAINS(address(hlg), address(gains));
+        vm.label(address(migration), "MigrateHLGToGAINS");
 
-        // 5) As GAINS owner, allow MigrateToGAINS to mint GAINS
+        // 5) As GAINS owner, allow MigrateHLGToGAINS to mint GAINS
         vm.prank(owner);
         gains.setMigrationContract(address(migration));
 
-        // 6) For local testing, mint some HLG to alice + bob
+        // 6) Mint MockHLG tokens to Alice and Bob for testing
         hlg.mint(alice, ALICE_STARTING_HLG);
         hlg.mint(bob, BOB_STARTING_HLG);
     }
@@ -70,63 +71,62 @@ contract MigrateToGAINSTest is Test {
     // ------------------------------------
 
     /**
-     * @notice Basic migration scenario: user approves MigrateToGAINS, calls migrate, HLG is burned, GAINS is minted.
+     * @notice Basic migration scenario: user approves MigrateHLGToGAINS, calls migrate, HLG is burned, GAINS is minted.
      */
     function test_migrate_HappyPath() public {
-        // Check initial
+        // Check initial balances
         assertEq(hlg.balanceOf(alice), ALICE_STARTING_HLG);
         assertEq(gains.balanceOf(alice), 0);
 
-        // Approve
+        // Approve MigrateHLGToGAINS
         uint256 amount = 1000 ether;
         vm.startPrank(alice);
         hlg.approve(address(migration), amount);
 
-        // Migrate
+        // Migrate HLG -> GAINS
         migration.migrate(amount);
         vm.stopPrank();
 
-        // Post-check
+        // Post-migration checks
         assertEq(hlg.balanceOf(alice), ALICE_STARTING_HLG - amount);
         assertEq(gains.balanceOf(alice), amount);
     }
 
     /**
-     * @notice If user doesn’t approve MigrateToGAINS, the burn fails with “ERC20: amount exceeds allowance.”
+     * @notice Migration fails if the user doesn’t approve MigrateHLGToGAINS.
      */
     function test_migrate_Revert_NoApproval() public {
         vm.startPrank(alice);
         vm.expectRevert("ERC20: amount exceeds allowance");
-        migration.migrate(1_000 ether);
+        migration.migrate(1000 ether);
         vm.stopPrank();
     }
 
     /**
-     * @notice If user tries migrating more than they hold, the burn fails with “ERC20: amount exceeds balance.”
+     * @notice Migration fails if the user tries to migrate more HLG than they hold.
      */
     function test_migrate_Revert_InsufficientBalance() public {
-        uint256 tooMuch = ALICE_STARTING_HLG + 1 ether;
+        uint256 excessiveAmount = ALICE_STARTING_HLG + 1 ether;
         vm.startPrank(alice);
-        hlg.approve(address(migration), tooMuch);
+        hlg.approve(address(migration), excessiveAmount);
 
-        // Real contract reverts with “ERC20: amount exceeds balance”
         vm.expectRevert("ERC20: amount exceeds balance");
-        migration.migrate(tooMuch);
+        migration.migrate(excessiveAmount);
         vm.stopPrank();
     }
 
     /**
-     * @notice MigrateToGAINS is the only contract allowed to call GAINS.mintForMigration
+     * @notice Only MigrateHLGToGAINS can call GAINS.mintForMigration.
      */
     function test_mintForMigration_RevertIfNotMigrationContract() public {
         vm.startPrank(alice);
         vm.expectRevert("GAINS: not migration contract");
-        gains.mintForMigration(alice, 1_000 ether);
+        gains.mintForMigration(alice, 1000 ether);
         vm.stopPrank();
     }
 
     /**
-     * @notice Only GAINS owner can set the MigrateToGAINS contract
+     * @notice Only the GAINS owner can set the MigrateHLGToGAINS contract.
      */
     function test_setMigrationContract_RevertIfNotOwner() public {
         vm.startPrank(alice);
@@ -136,18 +136,21 @@ contract MigrateToGAINSTest is Test {
     }
 
     /**
-     * @notice Confirm MigrateToGAINS emits the Migrated event with correct args
+     * @notice Migration emits a Migrated event with the correct parameters.
      */
     function test_migrate_EventEmission() public {
-        // Approve first
+        uint256 amount = 500 ether;
+
+        // Approve MigrateHLGToGAINS
         vm.startPrank(alice);
-        hlg.approve(address(migration), 500 ether);
+        hlg.approve(address(migration), amount);
 
-        // Expect event
+        // Expect the event
         vm.expectEmit(true, true, false, true);
-        emit Migrated(alice, 500 ether);
+        emit Migrated(alice, amount);
 
-        migration.migrate(500 ether);
+        // Trigger migration
+        migration.migrate(amount);
         vm.stopPrank();
     }
 }

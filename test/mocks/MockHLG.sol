@@ -72,7 +72,7 @@ contract MockHLG is HolographERC20Interface {
     }
 
     // --------------------------------------------------
-    // The main calls MigrateToGAINS does
+    // The main calls MigrateHLGToGAINS does
     // --------------------------------------------------
 
     /**

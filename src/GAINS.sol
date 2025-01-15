@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract GAINS is OFT {
     /**
-     * @dev The MigrateToGAINS contract that will do the minting for HLG->GAINS migration.
+     * @dev The MigrateHLGToGAINS contract that will do the minting for HLG->GAINS migration.
      */
     address public migrationContract;
 
@@ -22,7 +22,7 @@ contract GAINS is OFT {
     ) Ownable(msg.sender) OFT(_name, _symbol, _lzEndpoint, _delegate) {}
 
     /**
-     * @notice Assign or update the MigrateToGAINS contract allowed to mint new tokens.
+     * @notice Assign or update the MigrateHLGToGAINS contract allowed to mint new tokens.
      * @dev Only the owner can set or update this.
      */
     function setMigrationContract(address _migrationContract) external onlyOwner {
@@ -36,7 +36,7 @@ contract GAINS is OFT {
 
     /**
      * @notice Mint tokens for local chain migration from HLG.
-     * @dev Only callable by the MigrateToGAINS contract.
+     * @dev Only callable by the MigrateHLGToGAINS contract.
      * @param _to Recipient of newly minted tokens.
      * @param _amount Amount of tokens to mint.
      */
