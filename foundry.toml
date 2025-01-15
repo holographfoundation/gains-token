@@ -27,5 +27,7 @@ remappings = [
     '@openzeppelin/=node_modules/@openzeppelin/',
 ]
 
+rpc_endpoints = { sepolia = "${SEPOLIA_RPC_URL}" }
+
 [fuzz]
 runs = 1000

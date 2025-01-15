@@ -29,10 +29,10 @@ contract MigrateToGAINS {
      * @param amount The amount of HLG to burn and convert.
      */
     function migrate(uint256 amount) external {
-        // Burn HLG from the caller's wallet (requires user approval).
-        hlg.sourceBurn(msg.sender, amount);
+        // First try burnFrom since we've got approval
+        hlg.burnFrom(msg.sender, amount);
 
-        // Mint GAINS 1:1 to the caller.
+        // Mint GAINS 1:1 to the caller
         gains.mintForMigration(msg.sender, amount);
 
         emit Migrated(msg.sender, amount);
