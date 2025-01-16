@@ -7,37 +7,42 @@ import "../src/MigrateHLGToGAINS.sol";
 
 /**
  * @title DeployMigrateHLGToGAINS
- * @notice Deploys GAINS + MigrateHLGToGAINS via CREATE2, or reuses them if already deployed.
+ * @notice Uses Foundry’s built-in deterministic deployer at 0x4e59b448... to do `new ... { salt: ... }()`.
  *
- * Usage:
+ * Steps:
+ * 1) Checks if GAINS & MigrateHLGToGAINS code already exist at the predicted addresses.
+ * 2) If not, calls `new GAINS{salt: SALT_GAINS}(...)`.
+ * 3) If code already exists, skip re-deployment.
+ * 4) If run with --verify, Foundry attempts auto-verification for newly deployed contracts.
+ *
+ * Usage example:
  *   forge script script/DeployMigrateHLGToGAINS.s.sol:DeployMigrateHLGToGAINS \
  *       --rpc-url $RPC_URL \
  *       --broadcast \
  *       --verify \
  *       -vvvv
- *
- * Foundry will attempt to verify automatically if you provide:
- *   - ETHERSCAN_API_KEY in your env
- *   - matching compiler version, etc.
  */
 contract DeployMigrateHLGToGAINS is Script {
-    // GAINS name and symbol
+    // The Foundry deterministic deployer address (same across all EVM chains)
+    // Reference: https://book.getfoundry.sh/tutorials/create2
+    address internal constant FOUNDRY_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
+    // GAINS name/symbol
     string public constant GAINS_NAME = "GAINS";
     string public constant GAINS_SYMBOL = "GAINS";
 
     // Example: For Sepolia
     address public constant LZ_ENDPOINT = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-    address public constant GAINS_OWNER = 0x5f5C3548f96C7DA33A18E5F2F2f13519e1c8bD0d; // e.g. your deployer or Gnosis safe
-    address public constant HLG_ADDRESS = 0x5Ff07042d14E60EC1de7a860BBE968344431BaA1; // Deployed HLG on this chain
+    address public constant GAINS_OWNER = 0x5f5C3548f96C7DA33A18E5F2F2f13519e1c8bD0d;
+    address public constant HLG_ADDRESS = 0x5Ff07042d14E60EC1de7a860BBE968344431BaA1;
 
     // CREATE2 salts
-    bytes32 public constant SALT_GAINS = bytes32(uint256(keccak256("GAINS_V1")));
-    bytes32 public constant SALT_MIGRATION = bytes32(uint256(keccak256("MIGRATION_V1")));
+    bytes32 public constant SALT_GAINS = keccak256("GAINS_V1");
+    bytes32 public constant SALT_MIGRATION = keccak256("MIGRATION_V1");
 
     /**
-    /**
-    * @notice Check if an address has deployed code
-    */
+     * @notice Check if an address already has deployed code.
+     */
     function hasCode(address _addr) internal view returns (bool) {
         uint256 size;
         assembly {
@@ -47,86 +52,83 @@ contract DeployMigrateHLGToGAINS is Script {
     }
 
     /**
-    * @dev Helper function to deploy bytecode using CREATE2
-    */
-    function deployBytecode(uint256 value, bytes memory bytecode, bytes32 salt) internal returns (address addr) {
-        assembly {
-            addr := create2(value, add(bytecode, 0x20), mload(bytecode), salt)
-        }
+     * @dev Foundry ephemeral deterministic deployer address is `FOUNDRY_DEPLOYER`.
+     * We compute:
+     *   keccak256( 0xff, FOUNDRY_DEPLOYER, salt, keccak256(init_code) )
+     * Then take the low 20 bytes, after skipping the first 12 bytes of the 32-byte hash.
+     *
+     * For a contract created by:
+     *   new MyContract{salt: salt}(constructorArgs)
+     */
+    function computeFoundryCreate2Address(bytes32 salt, bytes memory initCode) internal pure returns (address) {
+        bytes32 codeHash = keccak256(initCode);
+        // same formula: keccak256(0xff ++ foundryDeployer ++ salt ++ keccak256(initCode))
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), FOUNDRY_DEPLOYER, salt, codeHash));
+        return address(uint160(uint256(hash)));
     }
 
-    /**
-     * @notice Main entrypoint. Idempotently deploy or reuse GAINS and MigrateHLGToGAINS, then set references.
-     */
     function run() external {
-        // 1) Load the deployer's private key from env
+        // 1) Load private key from .env
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        // 2) Start broadcast so subsequent calls are real tx's
         vm.startBroadcast(deployerPrivateKey);
 
-        // 3) Compute the expected addresses
-        //    If code is present, skip deployment
-        //    If not, deploy via CREATE2
-        // GAINS
+        // ---------------------------
+        // Deploy/Re-use GAINS
+        // ---------------------------
         bytes memory gainsConstructorArgs = abi.encode(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
-        bytes memory gainsBytecode = abi.encodePacked(type(GAINS).creationCode, gainsConstructorArgs);
-        address gainsAddr = computeCreate2Address(
-            SALT_GAINS,
-            keccak256(gainsBytecode),
-            address(this)
-        );
+        // The final creation code that the deterministic deployer uses
+        // is `type(GAINS).creationCode` concatenated with the constructor args
+        bytes memory gainsInitCode = abi.encodePacked(type(GAINS).creationCode, gainsConstructorArgs);
+
+        address gainsPredicted = computeFoundryCreate2Address(SALT_GAINS, gainsInitCode);
 
         GAINS gains;
-        if (!hasCode(gainsAddr)) {
-            console.log("Deploying GAINS via CREATE2 at:", gainsAddr);
-            address deployedAddr = deployBytecode(0, gainsBytecode, SALT_GAINS);
-            require(deployedAddr != address(0), "CREATE2 GAINS failed");
-            gains = GAINS(deployedAddr);
-            console.log("Deployed GAINS at:", address(gains));
+        if (!hasCode(gainsPredicted)) {
+            console.log("Deterministically deploying GAINS at:", gainsPredicted);
+            // Deploy by calling `new GAINS{salt: SALT_GAINS}(...args...)`
+            gains = new GAINS{ salt: SALT_GAINS }(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
+            console.log("GAINS deployed at:", address(gains));
+            require(address(gains) == gainsPredicted, "GAINS address mismatch");
         } else {
-            console.log("GAINS already deployed at:", gainsAddr);
-            gains = GAINS(gainsAddr);
+            console.log("GAINS already at:", gainsPredicted);
+            gains = GAINS(gainsPredicted);
         }
 
-        // MIGRATION
-        bytes memory migrationConstructorArgs = abi.encode(HLG_ADDRESS, address(gains));
-        bytes memory migrationBytecode = abi.encodePacked(
+        // ---------------------------
+        // Deploy/Re-use MigrateHLGToGAINS
+        // ---------------------------
+        bytes memory migrationConstructorArgs = abi.encode(HLG_ADDRESS, gainsPredicted);
+        bytes memory migrationInitCode = abi.encodePacked(
             type(MigrateHLGToGAINS).creationCode,
             migrationConstructorArgs
         );
-        address migrationAddr = computeCreate2Address(
-            SALT_MIGRATION,
-            keccak256(migrationBytecode),
-            address(this)
-        );
+        address migrationPredicted = computeFoundryCreate2Address(SALT_MIGRATION, migrationInitCode);
 
         MigrateHLGToGAINS migration;
-        if (!hasCode(migrationAddr)) {
-            console.log("Deploying MigrateHLGToGAINS via CREATE2 at:", migrationAddr);
-            address deployedAddr = deployBytecode(0, migrationBytecode, SALT_MIGRATION);
-            require(deployedAddr != address(0), "CREATE2 Migration failed");
-            migration = MigrateHLGToGAINS(deployedAddr);
-            console.log("Deployed MigrateHLGToGAINS at:", address(migration));
+        if (!hasCode(migrationPredicted)) {
+            console.log("Deterministically deploying MigrateHLGToGAINS at:", migrationPredicted);
+            // `new` with salt
+            migration = new MigrateHLGToGAINS{ salt: SALT_MIGRATION }(HLG_ADDRESS, gainsPredicted);
+            console.log("MigrateHLGToGAINS deployed at:", address(migration));
+            require(address(migration) == migrationPredicted, "Migration address mismatch");
         } else {
-            console.log("MigrateHLGToGAINS already deployed at:", migrationAddr);
-            migration = MigrateHLGToGAINS(migrationAddr);
+            console.log("MigrateHLGToGAINS already at:", migrationPredicted);
+            migration = MigrateHLGToGAINS(migrationPredicted);
         }
 
-        // 4) Set Gains -> Migration reference if needed
+        // ---------------------------
+        // Link them if needed
+        // ---------------------------
         if (gains.migrationContract() != address(migration)) {
             gains.setMigrationContract(address(migration));
-            console.log("GAINS.migrationContract set to:", address(migration));
+            console.log("Set GAINS.migrationContract to:", address(migration));
         }
 
-        // 5) Stop broadcasting
         vm.stopBroadcast();
 
-        // 6) Log final addresses
         console.log("\nFinal addresses:");
         console.log("GAINS:", address(gains));
         console.log("MigrateHLGToGAINS:", address(migration));
-
-        console.log("Done. If you ran with --verify, Foundry will attempt to verify automatically.");
+        console.log("Done. If run with --verify, Foundry will attempt to auto-verify newly deployed contracts only.");
     }
 }
