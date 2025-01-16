@@ -21,11 +21,11 @@ contract DeployMigrateHLGToGAINS is Script {
     string public constant GAINS_SYMBOL = "GAINS";
 
     // Fill in actual chain-specific values:
-    address public constant LZ_ENDPOINT = 0x1234567890123456789012345678901234567890; // e.g. for the deployment chain
-    address public constant GAINS_OWNER = 0x111122223333444455556666777788889999AAAA; // e.g. a Gnosis Safe
+    address public constant LZ_ENDPOINT = 0x6EDCE65403992e310A62460808c4b910D972f10f; // eth sepolia
+    address public constant GAINS_OWNER = 0x5f5C3548f96C7DA33A18E5F2F2f13519e1c8bD0d; // alexander's develop env deployer
 
     // The deployed HLG address on the chain:
-    address public constant HLG_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // e.g. use env var
+    address public constant HLG_ADDRESS = 0x5ff07042d14e60ec1de7a860bbe968344431baa1; // eth sepolia
 
     // CREATE2 salt — must be consistent across all chains
     bytes32 public constant SALT_GAINS = keccak256("GAINS_SALT_V1");
@@ -44,13 +44,14 @@ contract DeployMigrateHLGToGAINS is Script {
         bytes memory gainsBytecode = abi.encodePacked(type(GAINS).creationCode, gainsConstructorArgs);
 
         address gainsAddr;
+        bytes32 saltGains = SALT_GAINS;
         assembly {
             // Foundry cheatcode: create2(value, offset, size, salt)
             gainsAddr := create2(
                 0, // no ETH value
                 add(gainsBytecode, 0x20), // skip the length slot
                 mload(gainsBytecode), // length of the bytecode
-                SALT_GAINS // salt
+                saltGains // salt
             )
         }
         require(gainsAddr != address(0), "CREATE2 GAINS failed");
@@ -65,8 +66,9 @@ contract DeployMigrateHLGToGAINS is Script {
         );
 
         address migrationAddr;
+        bytes32 saltMigration = SALT_MIGRATION;
         assembly {
-            migrationAddr := create2(0, add(migrationBytecode, 0x20), mload(migrationBytecode), SALT_MIGRATION)
+            migrationAddr := create2(0, add(migrationBytecode, 0x20), mload(migrationBytecode), saltMigration)
         }
         require(migrationAddr != address(0), "CREATE2 Migration failed");
         MigrateHLGToGAINS migration = MigrateHLGToGAINS(migrationAddr);
