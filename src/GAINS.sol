@@ -19,7 +19,7 @@ contract GAINS is OFT {
         string memory _symbol,
         address _lzEndpoint,
         address _delegate
-    ) Ownable(msg.sender) OFT(_name, _symbol, _lzEndpoint, _delegate) {}
+    ) Ownable(_delegate) OFT(_name, _symbol, _lzEndpoint, _delegate) {}
 
     /**
      * @notice Assign or update the MigrateHLGToGAINS contract allowed to mint new tokens.

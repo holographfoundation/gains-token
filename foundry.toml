@@ -28,6 +28,7 @@ remappings = [
 ]
 
 rpc_endpoints = { sepolia = "${SEPOLIA_RPC_URL}" }
+etherscan_api_key = "${ETHERSCAN_API_KEY}"
 
 [fuzz]
 runs = 1000

@@ -7,80 +7,126 @@ import "../src/MigrateHLGToGAINS.sol";
 
 /**
  * @title DeployMigrateHLGToGAINS
- * @notice This Foundry script deploys GAINS + MigrateHLGToGAINS using CREATE2 for consistent addresses.
+ * @notice Deploys GAINS + MigrateHLGToGAINS via CREATE2, or reuses them if already deployed.
  *
  * Usage:
  *   forge script script/DeployMigrateHLGToGAINS.s.sol:DeployMigrateHLGToGAINS \
- *     --rpc-url $RPC_URL \
- *     --broadcast \
- *     --verify \
- *     -vvvv
+ *       --rpc-url $RPC_URL \
+ *       --broadcast \
+ *       --verify \
+ *       -vvvv
+ *
+ * Foundry will attempt to verify automatically if you provide:
+ *   - ETHERSCAN_API_KEY in your env
+ *   - matching compiler version, etc.
  */
 contract DeployMigrateHLGToGAINS is Script {
+    // GAINS name and symbol
     string public constant GAINS_NAME = "GAINS";
     string public constant GAINS_SYMBOL = "GAINS";
 
-    // Fill in actual chain-specific values:
-    address public constant LZ_ENDPOINT = 0x6EDCE65403992e310A62460808c4b910D972f10f; // eth sepolia
-    address public constant GAINS_OWNER = 0x5f5C3548f96C7DA33A18E5F2F2f13519e1c8bD0d; // alexander's develop env deployer
+    // Example: For Sepolia
+    address public constant LZ_ENDPOINT = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+    address public constant GAINS_OWNER = 0x5f5C3548f96C7DA33A18E5F2F2f13519e1c8bD0d; // e.g. your deployer or Gnosis safe
+    address public constant HLG_ADDRESS = 0x5Ff07042d14E60EC1de7a860BBE968344431BaA1; // Deployed HLG on this chain
 
-    // The deployed HLG address on the chain:
-    address public constant HLG_ADDRESS = 0x5ff07042d14e60ec1de7a860bbe968344431baa1; // eth sepolia
+    // CREATE2 salts
+    bytes32 public constant SALT_GAINS = bytes32(uint256(keccak256("GAINS_V1")));
+    bytes32 public constant SALT_MIGRATION = bytes32(uint256(keccak256("MIGRATION_V1")));
 
-    // CREATE2 salt — must be consistent across all chains
-    bytes32 public constant SALT_GAINS = keccak256("GAINS_SALT_V1");
-    bytes32 public constant SALT_MIGRATION = keccak256("MIGRATE_HLG_TO_GAINS_V1");
+    /**
+    /**
+    * @notice Check if an address has deployed code
+    */
+    function hasCode(address _addr) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return size > 0;
+    }
 
+    /**
+    * @dev Helper function to deploy bytecode using CREATE2
+    */
+    function deployBytecode(uint256 value, bytes memory bytecode, bytes32 salt) internal returns (address addr) {
+        assembly {
+            addr := create2(value, add(bytecode, 0x20), mload(bytecode), salt)
+        }
+    }
+
+    /**
+     * @notice Main entrypoint. Idempotently deploy or reuse GAINS and MigrateHLGToGAINS, then set references.
+     */
     function run() external {
-        // 1) Load private key from env
+        // 1) Load the deployer's private key from env
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
-        // 2) Start broadcasting
+        // 2) Start broadcast so subsequent calls are real tx's
         vm.startBroadcast(deployerPrivateKey);
 
-        // 3) Deploy GAINS via CREATE2
-        //    GAINS constructor signature: (string memory, string memory, address, address)
+        // 3) Compute the expected addresses
+        //    If code is present, skip deployment
+        //    If not, deploy via CREATE2
+        // GAINS
         bytes memory gainsConstructorArgs = abi.encode(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
         bytes memory gainsBytecode = abi.encodePacked(type(GAINS).creationCode, gainsConstructorArgs);
+        address gainsAddr = computeCreate2Address(
+            SALT_GAINS,
+            keccak256(gainsBytecode),
+            address(this)
+        );
 
-        address gainsAddr;
-        bytes32 saltGains = SALT_GAINS;
-        assembly {
-            // Foundry cheatcode: create2(value, offset, size, salt)
-            gainsAddr := create2(
-                0, // no ETH value
-                add(gainsBytecode, 0x20), // skip the length slot
-                mload(gainsBytecode), // length of the bytecode
-                saltGains // salt
-            )
+        GAINS gains;
+        if (!hasCode(gainsAddr)) {
+            console.log("Deploying GAINS via CREATE2 at:", gainsAddr);
+            address deployedAddr = deployBytecode(0, gainsBytecode, SALT_GAINS);
+            require(deployedAddr != address(0), "CREATE2 GAINS failed");
+            gains = GAINS(deployedAddr);
+            console.log("Deployed GAINS at:", address(gains));
+        } else {
+            console.log("GAINS already deployed at:", gainsAddr);
+            gains = GAINS(gainsAddr);
         }
-        require(gainsAddr != address(0), "CREATE2 GAINS failed");
-        GAINS gains = GAINS(gainsAddr);
 
-        // 4) Deploy MigrateHLGToGAINS via CREATE2
-        //    MigrateHLGToGAINS constructor signature: (address, address)
-        bytes memory migrationConstructorArgs = abi.encode(HLG_ADDRESS, gainsAddr);
+        // MIGRATION
+        bytes memory migrationConstructorArgs = abi.encode(HLG_ADDRESS, address(gains));
         bytes memory migrationBytecode = abi.encodePacked(
             type(MigrateHLGToGAINS).creationCode,
             migrationConstructorArgs
         );
+        address migrationAddr = computeCreate2Address(
+            SALT_MIGRATION,
+            keccak256(migrationBytecode),
+            address(this)
+        );
 
-        address migrationAddr;
-        bytes32 saltMigration = SALT_MIGRATION;
-        assembly {
-            migrationAddr := create2(0, add(migrationBytecode, 0x20), mload(migrationBytecode), saltMigration)
+        MigrateHLGToGAINS migration;
+        if (!hasCode(migrationAddr)) {
+            console.log("Deploying MigrateHLGToGAINS via CREATE2 at:", migrationAddr);
+            address deployedAddr = deployBytecode(0, migrationBytecode, SALT_MIGRATION);
+            require(deployedAddr != address(0), "CREATE2 Migration failed");
+            migration = MigrateHLGToGAINS(deployedAddr);
+            console.log("Deployed MigrateHLGToGAINS at:", address(migration));
+        } else {
+            console.log("MigrateHLGToGAINS already deployed at:", migrationAddr);
+            migration = MigrateHLGToGAINS(migrationAddr);
         }
-        require(migrationAddr != address(0), "CREATE2 Migration failed");
-        MigrateHLGToGAINS migration = MigrateHLGToGAINS(migrationAddr);
 
-        // 5) Set GainsMigration as the migration contract
-        gains.setMigrationContract(migrationAddr);
+        // 4) Set Gains -> Migration reference if needed
+        if (gains.migrationContract() != address(migration)) {
+            gains.setMigrationContract(address(migration));
+            console.log("GAINS.migrationContract set to:", address(migration));
+        }
 
-        // 6) End broadcast
+        // 5) Stop broadcasting
         vm.stopBroadcast();
 
-        // Log addresses
-        console.log("GAINS deployed at:", gainsAddr);
-        console.log("MigrateHLGToGAINS deployed at:", migrationAddr);
+        // 6) Log final addresses
+        console.log("\nFinal addresses:");
+        console.log("GAINS:", address(gains));
+        console.log("MigrateHLGToGAINS:", address(migration));
+
+        console.log("Done. If you ran with --verify, Foundry will attempt to verify automatically.");
     }
 }
