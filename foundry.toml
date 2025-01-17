@@ -1,5 +1,5 @@
 [profile.default]
-solc = "0.8.20"
+solc = "0.8.26"
 src = 'src'
 optimizer_runs = 44444444
 via_ir = true

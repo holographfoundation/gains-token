@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -154,7 +154,7 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
 
         // Expect the event
         vm.expectEmit(true, true, false, true);
-        emit MigrateHLGToGAINS.Migrated(deployer, hlgAmount);
+        emit MigrateHLGToGAINS.MigratedHLGToGAINS(deployer, hlgAmount);
 
         // Perform migration
         migration.migrate(hlgAmount);

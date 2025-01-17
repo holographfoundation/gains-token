@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import "@layerzerolabs/oft-evm/contracts/OFT.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title GAINS token - an Omnichain Fungible Token (simple).
+ * @title GAINS token - an Omnichain Fungible Token (production version).
  * @notice Inherits the base OFT from the LayerZero EVM library.
  */
 contract GAINS is OFT {
@@ -41,16 +41,6 @@ contract GAINS is OFT {
      * @param _amount Amount of tokens to mint.
      */
     function mintForMigration(address _to, uint256 _amount) external onlyMigrationContract {
-        _mint(_to, _amount);
-    }
-
-    /**
-     * @notice Mint tokens to a specified address (testing only).
-     * @dev Only callable by contract owner in local tests.
-     * @param _to Address to receive the minted tokens
-     * @param _amount Amount of tokens to mint
-     */
-    function testMint(address _to, uint256 _amount) external onlyOwner {
         _mint(_to, _amount);
     }
 }

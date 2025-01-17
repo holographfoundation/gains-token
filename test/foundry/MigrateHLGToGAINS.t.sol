@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import "@layerzerolabs/test-devtools-evm-foundry/contracts/mocks/EndpointV2Mock.sol";
@@ -14,7 +14,7 @@ import "../mocks/MockHLG.sol"; // The minimal mock for HolographERC20Interface
  *         using MockHLG to replicate real HolographUtilityToken behavior.
  */
 contract MigrateHLGToGAINSTest is Test {
-    event Migrated(address indexed user, uint256 amount);
+    event MigratedHLGToGAINS(address indexed user, uint256 amount);
 
     // Contracts
     MockHLG internal hlg;
@@ -136,7 +136,7 @@ contract MigrateHLGToGAINSTest is Test {
     }
 
     /**
-     * @notice Migration emits a Migrated event with the correct parameters.
+     * @notice Migration emits a MigratedHLGToGAINS event with the correct parameters.
      */
     function test_migrate_EventEmission() public {
         uint256 amount = 500 ether;
@@ -147,7 +147,7 @@ contract MigrateHLGToGAINSTest is Test {
 
         // Expect the event
         vm.expectEmit(true, true, false, true);
-        emit Migrated(alice, amount);
+        emit MigratedHLGToGAINS(alice, amount);
 
         // Trigger migration
         migration.migrate(amount);

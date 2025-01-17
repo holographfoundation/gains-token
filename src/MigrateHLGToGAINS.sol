@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 import "./interfaces/HolographERC20Interface.sol";
 import "./GAINS.sol";
@@ -12,7 +12,7 @@ contract MigrateHLGToGAINS {
     HolographERC20Interface public immutable hlg;
     GAINS public immutable gains;
 
-    event Migrated(address indexed user, uint256 amount);
+    event MigratedHLGToGAINS(address indexed user, uint256 amount);
 
     /**
      * @param _hlg Address of the deployed HLG (HolographUtilityToken) contract proxy.
@@ -35,6 +35,6 @@ contract MigrateHLGToGAINS {
         // Mint GAINS 1:1 to the caller
         gains.mintForMigration(msg.sender, amount);
 
-        emit Migrated(msg.sender, amount);
+        emit MigratedHLGToGAINS(msg.sender, amount);
     }
 }

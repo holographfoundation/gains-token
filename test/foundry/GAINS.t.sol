@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 // OApp / OFT imports
 import { IOAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
@@ -20,7 +20,7 @@ import "forge-std/Test.sol";
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
 // GAINS import
-import { GAINS } from "../../src/GAINS.sol"; // adjust path as needed
+import { GAINSTest } from "./GAINSTest.sol";
 
 // (Optional) If you have a mock "OFTComposerMock" you want to reuse for compose tests
 import { OFTComposerMock } from "../mocks/OFTComposerMock.sol";
@@ -29,14 +29,14 @@ import { OFTComposerMock } from "../mocks/OFTComposerMock.sol";
  * @title GAINSTest
  * @notice Example test adapted from your OFTMock test suite to use GAINS.
  */
-contract GAINSTest is TestHelperOz5 {
+contract GAINSTestSuite is TestHelperOz5 {
     using OptionsBuilder for bytes;
 
     uint32 private aEid = 1;
     uint32 private bEid = 2;
 
-    GAINS private aGAINS;
-    GAINS private bGAINS;
+    GAINSTest private aGAINS;
+    GAINSTest private bGAINS;
 
     address private userA = makeAddr("userA");
     address private userB = makeAddr("userB");
@@ -69,15 +69,15 @@ contract GAINSTest is TestHelperOz5 {
          *
          * For testing, we can pass `address(this)` as the owner/delegate.
          */
-        aGAINS = GAINS(
+        aGAINS = GAINSTest(
             _deployOApp(
-                type(GAINS).creationCode,
+                type(GAINSTest).creationCode,
                 abi.encode("aGAINS", "aGAINS", address(endpoints[aEid]), address(this))
             )
         );
-        bGAINS = GAINS(
+        bGAINS = GAINSTest(
             _deployOApp(
-                type(GAINS).creationCode,
+                type(GAINSTest).creationCode,
                 abi.encode("bGAINS", "bGAINS", address(endpoints[bEid]), address(this))
             )
         );

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.26;
 
 interface Holographable {
     function bridgeIn(uint32 fromChain, bytes calldata payload) external returns (bytes4);
