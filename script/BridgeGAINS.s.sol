@@ -13,6 +13,12 @@ import { IOAppCore } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOA
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
+/**
+ * @title BridgeGAINSScript
+ * @notice Script to bridge GAINS tokens between two LayerZero chains.
+ * Run with:
+ * forge script script/BridgeGAINS.s.sol:BridgeGAINSScript --rpc-url <rpc-url> --broadcast -vvvv
+ */
 contract BridgeGAINSScript is Script {
     using OptionsBuilder for bytes; // For addExecutorLzReceiveOption()
 
