@@ -18,11 +18,8 @@ contract BridgeGAINSScript is Script {
 
     GAINS public gains;
 
-    // Update these to the *correct* OApp Endpoint IDs for your chains
     uint32 constant ETH_SEPOLIA_CHAIN_ID = 40161;
     uint32 constant BASE_SEPOLIA_CHAIN_ID = 40245;
-
-    // Addresses of your GAINS token on each chain
     address constant GAINS_ETH_SEPOLIA = 0x354B7DEb6f6aa08a683461d5a6451E22458b17Ee;
     address constant GAINS_BASE_SEPOLIA = 0x354B7DEb6f6aa08a683461d5a6451E22458b17Ee;
 
