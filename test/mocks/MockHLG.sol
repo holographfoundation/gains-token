@@ -3,14 +3,15 @@ pragma solidity 0.8.26;
 
 import "../../src/interfaces/HolographERC20Interface.sol";
 import "../../src/interfaces/ERC20Receiver.sol";
+
 /**
  * @dev Minimal mock replicating key HolographERC20 logic:
  *      1) Balances
  *      2) Approvals
  *      3) sourceBurn(msg.sender, amount) which reverts if allowance/balance is insufficient
  *      4) Revert messages match the real contract:
- *         - “ERC20: amount exceeds allowance”
- *         - “ERC20: amount exceeds balance”
+ *         - "ERC20: amount exceeds allowance"
+ *         - "ERC20: amount exceeds balance"
  */
 contract MockHLG is HolographERC20Interface {
     string public name;
@@ -76,7 +77,7 @@ contract MockHLG is HolographERC20Interface {
     // --------------------------------------------------
 
     /**
-     * @notice Mirror real HolographERC20 “sourceBurn(address from, uint256 amount)”
+     * @notice Mirror real HolographERC20 "sourceBurn(address from, uint256 amount)"
      *         Also replicate the real revert messages for allowance & balance checks.
      */
     function sourceBurn(address from, uint256 amount) external {
@@ -133,7 +134,7 @@ contract MockHLG is HolographERC20Interface {
     }
 
     // EIP-2612 and domain
-    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+    function DOMAIN_SEPARATOR() external pure returns (bytes32) {
         return keccak256("MockHLG"); // Simplified for mock
     }
 
@@ -146,11 +147,15 @@ contract MockHLG is HolographERC20Interface {
         address spender,
         uint256 value,
         uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        uint8 /*v*/,
+        bytes32 /*r*/,
+        bytes32 /*s*/
     ) external {
-        require(deadline >= block.timestamp, "Permit expired");
+        require(deadline >= block.timestamp, "ERC20Permit: expired deadline");
+
+        // Note: In a real implementation, we would verify the signature here
+        // For this mock, we just update the nonce and allowance
+
         _nonces[owner]++;
         _allowance[owner][spender] = value;
     }
@@ -230,32 +235,32 @@ contract MockHLG is HolographERC20Interface {
     }
 
     // Bridge functions
-    function bridgeIn(uint32 fromChain, bytes calldata payload) external returns (bytes4) {
+    function bridgeIn(uint32 /*fromChain*/, bytes calldata /*payload*/) external pure returns (bytes4) {
         // Basic mock that accepts all bridge-ins
         return this.bridgeIn.selector;
     }
 
     function bridgeOut(
-        uint32 toChain,
-        address sender,
+        uint32 /*toChain*/,
+        address /*sender*/,
         bytes calldata payload
-    ) external returns (bytes4 selector, bytes memory data) {
+    ) external pure returns (bytes4 selector, bytes memory data) {
         // Basic mock that accepts all bridge-outs
         return (this.bridgeOut.selector, payload);
     }
 
     // ERC20 Receiver
     function onERC20Received(
-        address operator,
-        address from,
-        uint256 amount,
-        bytes memory data
-    ) external returns (bytes4) {
+        address /*operator*/,
+        address /*from*/,
+        uint256 /*amount*/,
+        bytes memory /*data*/
+    ) external pure returns (bytes4) {
         return this.onERC20Received.selector;
     }
 
     // ERC165
-    function supportsInterface(bytes4 interfaceID) external view returns (bool) {
+    function supportsInterface(bytes4 interfaceID) external pure returns (bool) {
         return interfaceID == type(HolographERC20Interface).interfaceId;
     }
 }

@@ -20,11 +20,19 @@ all: build test
 fmt:
 	@echo "$(YELLOW)✍  Formatting code...$(NC)"
 	forge fmt
+	@echo "\n$(GREEN)✅ Formatting code completed successfully!$(NC)\n"
+
+# build: Builds the project using Foundry.
+build:
+	@echo "\n$(YELLOW)🔨 Building the project...$(NC)\n"
+	forge build
+	@echo "\n$(GREEN)✅ Build completed successfully!$(NC)\n"
 
 ## build: Build the contracts
-build:
-	@echo "$(YELLOW)🔨 Building contracts...$(NC)"
+clean:
+	@echo "$(YELLOW)🔨 Cleaning contracts...$(NC)"
 	forge build
+	@echo "\n$(GREEN)✅ Cleaning completed successfully!$(NC)\n"
 
 ## test: Run all tests
 test: build
