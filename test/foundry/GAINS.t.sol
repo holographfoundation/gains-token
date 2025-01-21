@@ -16,27 +16,31 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Met
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 
-// DevTools imports (your existing test-devtools-evm-foundry might differ)
+// Test Helper imports
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
 // GAINS import
-import { GAINSTest } from "./GAINSTest.sol";
+import { GAINSTestExtension } from "./GAINSTestExtension.sol";
 
-// (Optional) If you have a mock "OFTComposerMock" you want to reuse for compose tests
+// Mock imports
 import { OFTComposerMock } from "../mocks/OFTComposerMock.sol";
 
 /**
  * @title GAINSTest
- * @notice Example test adapted from your OFTMock test suite to use GAINS.
+ * @notice Tests GAINS token functionality.
+ *
+ * This test uses a local environment with two endpoints (chain A and chain B) and
+ * two GAINS instances representing the same token on each chain. Cross-chain sends
+ * are tested by sending from chain A -> B or vice versa.
  */
-contract GAINSTestSuite is TestHelperOz5 {
+contract GAINSTest is TestHelperOz5 {
     using OptionsBuilder for bytes;
 
     uint32 private aEid = 1;
     uint32 private bEid = 2;
 
-    GAINSTest private aGAINS;
-    GAINSTest private bGAINS;
+    GAINSTestExtension private aGAINS;
+    GAINSTestExtension private bGAINS;
 
     address private userA = makeAddr("userA");
     address private userB = makeAddr("userB");
@@ -47,7 +51,6 @@ contract GAINSTestSuite is TestHelperOz5 {
         vm.deal(userA, 1000 ether);
         vm.deal(userB, 1000 ether);
 
-        // set up endpoints, from your existing test harness
         super.setUp();
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
@@ -55,9 +58,9 @@ contract GAINSTestSuite is TestHelperOz5 {
          * Deploy a GAINS instance to represent chain A,
          * and another GAINS instance to represent chain B.
          *
-         * _deployOApp is your test harness function that:
+         * _deployOApp is a test harness function that:
          * 1) Deploys the contract at the chain's endpoint
-         * 2) Wires the contract into your local test environment
+         * 2) Wires the contract into the local test environment
          *
          * GAINS constructor signature is:
          *   constructor(
@@ -69,15 +72,15 @@ contract GAINSTestSuite is TestHelperOz5 {
          *
          * For testing, we can pass `address(this)` as the owner/delegate.
          */
-        aGAINS = GAINSTest(
+        aGAINS = GAINSTestExtension(
             _deployOApp(
-                type(GAINSTest).creationCode,
+                type(GAINSTestExtension).creationCode,
                 abi.encode("aGAINS", "aGAINS", address(endpoints[aEid]), address(this))
             )
         );
-        bGAINS = GAINSTest(
+        bGAINS = GAINSTestExtension(
             _deployOApp(
-                type(GAINSTest).creationCode,
+                type(GAINSTestExtension).creationCode,
                 abi.encode("bGAINS", "bGAINS", address(endpoints[bEid]), address(this))
             )
         );
@@ -112,15 +115,15 @@ contract GAINSTestSuite is TestHelperOz5 {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         // standard cross-chain send param
-        SendParam memory sendParam = SendParam(
-            bEid, // destination endpoint ID
-            addressToBytes32(userB), // receiver on destination
-            tokensToSend, // amount in local decimals
-            tokensToSend, // min amount out
-            options, // LZ receive options
-            "", // optional compose message
-            "" // adapter params
-        );
+        SendParam memory sendParam = SendParam({
+            dstEid: bEid,
+            to: addressToBytes32(userB),
+            amountLD: tokensToSend,
+            minAmountLD: tokensToSend,
+            extraOptions: options,
+            composeMsg: "",
+            oftCmd: ""
+        });
 
         MessagingFee memory fee = aGAINS.quoteSend(sendParam, false);
 
@@ -132,7 +135,7 @@ contract GAINSTestSuite is TestHelperOz5 {
         vm.prank(userA);
         aGAINS.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
 
-        // verify cross-chain packets in your test harness
+        // verify cross-chain packets
         verifyPackets(bEid, addressToBytes32(address(bGAINS)));
 
         // check post-send balances
@@ -142,7 +145,6 @@ contract GAINSTestSuite is TestHelperOz5 {
 
     /**
      * @notice Cross-chain send with a "compose" message, calling a contract on the destination.
-     * This is the same logic you had in your original test with `OFTComposerMock`.
      */
     function test_send_oft_compose_msg() public {
         uint256 tokensToSend = 1 ether;
@@ -158,15 +160,15 @@ contract GAINSTestSuite is TestHelperOz5 {
         // just an example payload
         bytes memory composeMsg = hex"1234";
 
-        SendParam memory sendParam = SendParam(
-            bEid,
-            addressToBytes32(address(composer)),
-            tokensToSend,
-            tokensToSend,
-            options,
-            composeMsg,
-            ""
-        );
+        SendParam memory sendParam = SendParam({
+            dstEid: bEid,
+            to: addressToBytes32(address(composer)),
+            amountLD: tokensToSend,
+            minAmountLD: tokensToSend,
+            extraOptions: options,
+            composeMsg: composeMsg,
+            oftCmd: ""
+        });
         MessagingFee memory fee = aGAINS.quoteSend(sendParam, false);
 
         assertEq(aGAINS.balanceOf(userA), initialBalance);
@@ -178,9 +180,10 @@ contract GAINSTestSuite is TestHelperOz5 {
             fee,
             payable(address(this))
         );
+
         verifyPackets(bEid, addressToBytes32(address(bGAINS)));
 
-        // lzCompose params for your test harness
+        // lzCompose params
         uint32 dstEid_ = bEid;
         address from_ = address(bGAINS);
         bytes memory options_ = options;

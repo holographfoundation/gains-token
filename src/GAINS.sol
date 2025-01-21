@@ -5,32 +5,58 @@ import "@layerzerolabs/oft-evm/contracts/OFT.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title GAINS token - an Omnichain Fungible Token (production version).
- * @notice Inherits the base OFT from the LayerZero EVM library.
+ * @title GAINS token - an Omnichain Fungible Token.
+ * @notice Inherits the base OFT from the LayerZero EVM library for cross-chain compatibility.
  */
 contract GAINS is OFT {
+    error NotMigrationContract();
+    error ZeroAddress();
+
     /**
      * @dev The MigrateHLGToGAINS contract that will do the minting for HLG->GAINS migration.
      */
     address public migrationContract;
 
+    /**
+     * @dev Emitted when `migrationContract` address is updated.
+     */
+    event MigrationContractUpdated(address indexed previousContract, address indexed newContract);
+
+    /**
+     * @param _name ERC20 name (e.g., "GAINS")
+     * @param _symbol ERC20 symbol (e.g., "GAINS")
+     * @param _lzEndpoint The LayerZero endpoint address
+     * @param _delegate The address to set as contract owner (Ownable)
+     */
     constructor(
         string memory _name,
         string memory _symbol,
         address _lzEndpoint,
         address _delegate
-    ) Ownable(_delegate) OFT(_name, _symbol, _lzEndpoint, _delegate) {}
+    ) Ownable(_delegate) OFT(_name, _symbol, _lzEndpoint, _delegate) {
+        if (_lzEndpoint == address(0)) revert ZeroAddress();
+        if (_delegate == address(0)) revert ZeroAddress();
+    }
 
     /**
      * @notice Assign or update the MigrateHLGToGAINS contract allowed to mint new tokens.
      * @dev Only the owner can set or update this.
+     * @param _migrationContract The address of the migration contract.
      */
     function setMigrationContract(address _migrationContract) external onlyOwner {
+        if (_migrationContract == address(0)) revert ZeroAddress();
+
+        address oldContract = migrationContract;
         migrationContract = _migrationContract;
+
+        emit MigrationContractUpdated(oldContract, _migrationContract);
     }
 
+    /**
+     * @dev Restricts function access to only the `migrationContract`.
+     */
     modifier onlyMigrationContract() {
-        require(msg.sender == migrationContract, "GAINS: not migration contract");
+        if (msg.sender != migrationContract) revert NotMigrationContract();
         _;
     }
 

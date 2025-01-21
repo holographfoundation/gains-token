@@ -14,6 +14,9 @@ import "../mocks/MockHLG.sol"; // The minimal mock for HolographERC20Interface
  *         using MockHLG to replicate real HolographUtilityToken behavior.
  */
 contract MigrateHLGToGAINSTest is Test {
+    // GAINS uses custom errors, so we can check them via `vm.expectRevert(abi.encodeWithSignature("NotMigrationContract()"));`
+    error NotMigrationContract();
+
     event MigratedHLGToGAINS(address indexed user, uint256 amount);
 
     // Contracts
@@ -117,10 +120,12 @@ contract MigrateHLGToGAINSTest is Test {
 
     /**
      * @notice Only MigrateHLGToGAINS can call GAINS.mintForMigration.
+     *         We revert with a custom error now: NotMigrationContract().
      */
     function test_mintForMigration_RevertIfNotMigrationContract() public {
         vm.startPrank(alice);
-        vm.expectRevert("GAINS: not migration contract");
+        // New custom error signature from GAINS
+        vm.expectRevert(abi.encodeWithSignature("NotMigrationContract()"));
         gains.mintForMigration(alice, 1000 ether);
         vm.stopPrank();
     }
@@ -151,6 +156,33 @@ contract MigrateHLGToGAINSTest is Test {
 
         // Trigger migration
         migration.migrate(amount);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice (Optional) Test setting migration contract to zero address, expecting revert with `ZeroAddress()`.
+     *         This covers the new zero-address check in GAINS.
+     */
+    function test_setMigrationContract_RevertIfZeroAddress() public {
+        vm.startPrank(owner);
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        gains.setMigrationContract(address(0));
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice (Optional) Test that `MigrationContractUpdated` event fires when we set a new migration contract.
+     */
+    function test_setMigrationContract_EmitsEvent() public {
+        vm.startPrank(owner);
+
+        // Expect event from GAINS
+        vm.expectEmit(true, true, false, true);
+        // MigrationContractUpdated(address indexed previousContract, address indexed newContract)
+        emit GAINS.MigrationContractUpdated(address(migration), address(0xDEAD));
+
+        gains.setMigrationContract(address(0xDEAD));
+
         vm.stopPrank();
     }
 }

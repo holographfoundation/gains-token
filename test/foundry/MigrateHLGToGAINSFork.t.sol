@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../src/GAINS.sol";
 import "../../src/MigrateHLGToGAINS.sol";
+import "../mocks/MockHLG.sol";
 
 /**
  * @title MigrateHLGToGAINSFork
@@ -13,6 +14,9 @@ import "../../src/MigrateHLGToGAINS.sol";
  *
  */
 contract MigrateHLGToGAINSFork is TestHelperOz5 {
+    // GAINS uses custom errors
+    error NotMigrationContract();
+
     // The HLG proxy (HolographUtilityToken) address on Sepolia
     address internal constant SEP_HLG = 0x5Ff07042d14E60EC1de7a860BBE968344431BaA1;
 
@@ -114,13 +118,13 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
     /**
      * @notice Confirms that only the migration contract can call `mintForMigration` on GAINS.
      */
-    function testForkMintForMigration_RevertIfNotMigrationContract() external {
+    function test_ForkMintForMigration_RevertIfNotMigrationContract() external {
         uint256 gainsAmount = 1 ether;
 
         vm.startPrank(deployer);
 
         // Attempt direct mint
-        vm.expectRevert("GAINS: not migration contract");
+        vm.expectRevert(abi.encodeWithSignature("NotMigrationContract()"));
         gains.mintForMigration(deployer, gainsAmount);
 
         vm.stopPrank();
@@ -129,7 +133,7 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
     /**
      * @notice Ensures only the GAINS owner can set the migration contract.
      */
-    function testForkSetMigrationContract_RevertIfNotOwner() external {
+    function test_ForkSetMigrationContract_RevertIfNotOwner() external {
         address newMigrationContract = address(0xDEAD);
 
         vm.startPrank(deployer);

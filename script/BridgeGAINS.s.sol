@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.26;
 
 import "forge-std/Script.sol";
 import "../src/GAINS.sol";
@@ -56,10 +56,10 @@ contract BridgeGAINSScript is Script {
         // Start broadcast with explicit private key
         vm.startBroadcast(deployerPrivateKey);
 
-        // GAINS on ETH Sepolia: set the peer to GAINS on Base Sepolia
+        // GAINS on ETH Sepolia -> set peer to GAINS on Base Sepolia
         IOAppCore(GAINS_ETH_SEPOLIA).setPeer(BASE_SEPOLIA_CHAIN_ID, addressToBytes32(GAINS_BASE_SEPOLIA));
 
-        // GAINS on Base Sepolia: set the peer to GAINS on ETH Sepolia
+        // GAINS on Base Sepolia -> set peer to GAINS on ETH Sepolia
         IOAppCore(GAINS_BASE_SEPOLIA).setPeer(ETH_SEPOLIA_CHAIN_ID, addressToBytes32(GAINS_ETH_SEPOLIA));
 
         vm.stopBroadcast();
@@ -83,6 +83,7 @@ contract BridgeGAINSScript is Script {
 
         // Start broadcast with explicit private key
         vm.startBroadcast(deployerPrivateKey);
+
         // Approve bridging
         gains.approve(address(gains), amount);
 
@@ -115,7 +116,7 @@ contract BridgeGAINSScript is Script {
     }
 
     /**
-     * @notice Example run function:
+     * @notice Run function:
      *    1) sets peers on both chains,
      *    2) sends 1 GAINS cross-chain.
      */

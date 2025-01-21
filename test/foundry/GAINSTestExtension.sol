@@ -7,7 +7,7 @@ import "../../src/GAINS.sol";
  * @title GAINSTest
  * @notice A test-only version of GAINS that adds a `testMint` function for local Foundry tests.
  */
-contract GAINSTest is GAINS {
+contract GAINSTestExtension is GAINS {
     constructor(
         string memory _name,
         string memory _symbol,

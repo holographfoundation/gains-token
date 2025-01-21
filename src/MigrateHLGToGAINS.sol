@@ -9,9 +9,21 @@ import "./GAINS.sol";
  * @notice Burns HLG from a user, then mints GAINS (OFT) to the same user 1:1.
  */
 contract MigrateHLGToGAINS {
+    /**
+     * @notice Interface for the HLG token being migrated (must support burnFrom).
+     */
     HolographERC20Interface public immutable hlg;
+
+    /**
+     * @notice GAINS (OFT) contract, which is minted into at a 1:1 ratio.
+     */
     GAINS public immutable gains;
 
+    /**
+     * @notice Emitted when a user migrates HLG -> GAINS.
+     * @param user The user who did the migration.
+     * @param amount The amount of HLG burned & GAINS minted.
+     */
     event MigratedHLGToGAINS(address indexed user, uint256 amount);
 
     /**
@@ -19,6 +31,9 @@ contract MigrateHLGToGAINS {
      * @param _gains Address of the deployed GAINS (OFT) contract.
      */
     constructor(address _hlg, address _gains) {
+        if (_hlg == address(0) || _gains == address(0)) {
+            revert("MigrateHLGToGAINS: zero address in constructor");
+        }
         hlg = HolographERC20Interface(_hlg);
         gains = GAINS(_gains);
     }
@@ -29,7 +44,7 @@ contract MigrateHLGToGAINS {
      * @param amount The amount of HLG to burn and convert.
      */
     function migrate(uint256 amount) external {
-        // First try burnFrom since we've got approval
+        // The user must have approved the HLG contract before calling.
         hlg.burnFrom(msg.sender, amount);
 
         // Mint GAINS 1:1 to the caller

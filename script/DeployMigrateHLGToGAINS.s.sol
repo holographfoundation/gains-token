@@ -86,6 +86,7 @@ contract DeployMigrateHLGToGAINS is Script {
             type(MigrateHLGToGAINS).creationCode,
             migrationConstructorArgs
         );
+
         address migrationPredicted = computeFoundryCreate2Address(SALT_MIGRATION, migrationInitCode);
 
         MigrateHLGToGAINS migration;

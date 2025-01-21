@@ -48,7 +48,7 @@ contract SetPeersScript is Script {
     }
 
     /**
-     * @notice Example run function that only sets peers.
+     * @notice Run function that only sets peers.
      */
     function run() public {
         setPeers();
