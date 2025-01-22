@@ -8,12 +8,6 @@ import "../src/MigrateHLGToGAINS.sol";
 /**
  * @title DeployMigrateHLGToGAINS
  * @notice Uses Foundry’s built-in deterministic deployer for CREATE2 at 0x4e59b44847b379578588920cA78FbF26c0B4956C.
- *
- * Steps:
- * 1) Checks if GAINS & MigrateHLGToGAINS code already exist at the predicted addresses.
- * 2) If not, deploys them deterministically using `new ... {salt: ...}`.
- * 3) If code already exists, skips deployment.
- * 4) If run with --verify, Foundry attempts auto-verification for newly deployed contracts.
  */
 contract DeployMigrateHLGToGAINS is Script {
     // The Foundry deterministic deployer address (same across all EVM chains)
@@ -70,7 +64,7 @@ contract DeployMigrateHLGToGAINS is Script {
         GAINS gains;
         if (!hasCode(gainsPredicted)) {
             console.log("Deterministically deploying GAINS at:", gainsPredicted);
-            gains = new GAINS{ salt: SALT_GAINS }(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
+            gains = new GAINS{salt: SALT_GAINS}(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
             console.log("GAINS deployed at:", address(gains));
             require(address(gains) == gainsPredicted, "GAINS address mismatch");
         } else {
@@ -92,7 +86,7 @@ contract DeployMigrateHLGToGAINS is Script {
         MigrateHLGToGAINS migration;
         if (!hasCode(migrationPredicted)) {
             console.log("Deterministically deploying MigrateHLGToGAINS at:", migrationPredicted);
-            migration = new MigrateHLGToGAINS{ salt: SALT_MIGRATION }(HLG_ADDRESS, gainsPredicted);
+            migration = new MigrateHLGToGAINS{salt: SALT_MIGRATION}(HLG_ADDRESS, gainsPredicted);
             console.log("MigrateHLGToGAINS deployed at:", address(migration));
             require(address(migration) == migrationPredicted, "Migration address mismatch");
         } else {
@@ -103,9 +97,11 @@ contract DeployMigrateHLGToGAINS is Script {
         // ---------------------------
         // Link them if needed
         // ---------------------------
-        if (gains.migrationContract() != address(migration)) {
+        if (gains.migrationContract() == address(0)) {
             gains.setMigrationContract(address(migration));
             console.log("Set GAINS.migrationContract to:", address(migration));
+        } else {
+            console.log("GAINS.migrationContract is already set to:", gains.migrationContract());
         }
 
         vm.stopBroadcast();

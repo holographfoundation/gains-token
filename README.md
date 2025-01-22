@@ -1,5 +1,7 @@
 # GAINS & MigrateHLGToGAINS
 
+![GAINS Logo](./gm.png)
+
 This repository contains the **GAINS** omnichain token (built on [LayerZero's OFT standard](https://docs.layerzero.network/v2/developers/evm/oft/quickstart)) and a **MigrateHLGToGAINS** contract that facilitates a burn-and-mint migration from HLG (HolographUtilityToken) to GAINS on any chain where GAINS is deployed.
 
 ## Overview

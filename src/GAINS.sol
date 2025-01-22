@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract GAINS is OFT {
     error NotMigrationContract();
     error ZeroAddress();
+    error MigrationContractAlreadySet();
 
     /**
      * @dev The MigrateHLGToGAINS contract that will do the minting for HLG->GAINS migration.
@@ -39,11 +40,13 @@ contract GAINS is OFT {
     }
 
     /**
-     * @notice Assign or update the MigrateHLGToGAINS contract allowed to mint new tokens.
-     * @dev Only the owner can set or update this.
+     * @notice Sets the MigrateHLGToGAINS contract allowed to mint new tokens.
+     *         This can be called only once to lock out any subsequent changes.
+     * @dev Only the owner can call this. Reverts if already set.
      * @param _migrationContract The address of the migration contract.
      */
     function setMigrationContract(address _migrationContract) external onlyOwner {
+        if (migrationContract != address(0)) revert MigrationContractAlreadySet();
         if (_migrationContract == address(0)) revert ZeroAddress();
 
         address oldContract = migrationContract;
