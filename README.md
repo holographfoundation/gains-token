@@ -48,7 +48,7 @@ Together, these contracts enable a smooth transition from HLG to GAINS, ensuring
 │   └── ...
 ├── tests
 │   └── ...                         # Unit and integration tests for GAINS & MigrateHLGToGAINS
-├── forge.toml / hardhat.config.ts  # Build & test configuration
+├── forge.toml                      # Build & test configuration
 ├── .env.example                    # Environment variables for private keys, RPCs, etc.
 └── ...
 ```
@@ -68,13 +68,6 @@ Together, these contracts enable a smooth transition from HLG to GAINS, ensuring
 
    ```bash
    forge install
-   ```
-
-   Hardhat or both:
-
-   ```bash
-   npm install
-   # or yarn install / pnpm install
    ```
 
 3. **Configure environment**:
