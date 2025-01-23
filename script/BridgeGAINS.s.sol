@@ -5,13 +5,13 @@ import "forge-std/Script.sol";
 import "../src/GAINS.sol";
 
 // For bridging calls (quoteSend, send)
-import { IOFT, SendParam, OFTReceipt } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import {IOFT, SendParam, OFTReceipt} from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
-// For setPeer (whitelisting) calls
-import { IOAppCore } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
+// For setPeer (whitelisting) checks
+import {IOAppCore} from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
 
-import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import {MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
 /**
  * @title BridgeGAINSScript
@@ -26,8 +26,8 @@ contract BridgeGAINSScript is Script {
 
     uint32 constant ETH_SEPOLIA_CHAIN_ID = 40161;
     uint32 constant BASE_SEPOLIA_CHAIN_ID = 40245;
-    address constant GAINS_ETH_SEPOLIA = 0x354B7DEb6f6aa08a683461d5a6451E22458b17Ee;
-    address constant GAINS_BASE_SEPOLIA = 0x354B7DEb6f6aa08a683461d5a6451E22458b17Ee;
+    address constant GAINS_ETH_SEPOLIA = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076;
+    address constant GAINS_BASE_SEPOLIA = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076;
 
     function setUp() public {
         gains = GAINS(GAINS_ETH_SEPOLIA);
@@ -41,29 +41,25 @@ contract BridgeGAINSScript is Script {
     }
 
     /**
-     * @notice Whitelists peers on both chains so the OFT contracts can talk to each other.
-     * @dev This function calls `setPeer` on each chain's OApp contract.
-     *      In practice, you'd run this script once on each chain with the correct RPC, or call
-     *      these setPeer functions within the contract on each respective chain.
+     * @notice Checks if peers are already set between the chains.
+     * @dev Throws an error if peers are not set.
      */
-    function setPeers() public {
-        // Get private key and verify owner
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployerAddress = vm.addr(deployerPrivateKey);
-        address currentOwner = GAINS(GAINS_ETH_SEPOLIA).owner();
-        require(deployerAddress == currentOwner, "Must be called by the owner");
+    function checkPeers() internal view {
+        // Check if ETH Sepolia -> Base Sepolia peer is set
+        bytes32 baseSepoliaPeer = IOAppCore(GAINS_ETH_SEPOLIA).peers(BASE_SEPOLIA_CHAIN_ID);
+        require(
+            baseSepoliaPeer == addressToBytes32(GAINS_BASE_SEPOLIA),
+            "Peer for Base Sepolia is not set. Run SetPeers script first."
+        );
 
-        // Start broadcast with explicit private key
-        vm.startBroadcast(deployerPrivateKey);
+        // Check if Base Sepolia -> ETH Sepolia peer is set
+        bytes32 ethSepoliaPeer = IOAppCore(GAINS_BASE_SEPOLIA).peers(ETH_SEPOLIA_CHAIN_ID);
+        require(
+            ethSepoliaPeer == addressToBytes32(GAINS_ETH_SEPOLIA),
+            "Peer for ETH Sepolia is not set. Run SetPeers script first."
+        );
 
-        // GAINS on ETH Sepolia -> set peer to GAINS on Base Sepolia
-        IOAppCore(GAINS_ETH_SEPOLIA).setPeer(BASE_SEPOLIA_CHAIN_ID, addressToBytes32(GAINS_BASE_SEPOLIA));
-
-        // GAINS on Base Sepolia -> set peer to GAINS on ETH Sepolia
-        IOAppCore(GAINS_BASE_SEPOLIA).setPeer(ETH_SEPOLIA_CHAIN_ID, addressToBytes32(GAINS_ETH_SEPOLIA));
-
-        vm.stopBroadcast();
-        console.log("Peers set successfully on both chains");
+        console.log("Peers are set between ETH Sepolia and Base Sepolia.");
     }
 
     /**
@@ -80,6 +76,9 @@ contract BridgeGAINSScript is Script {
         address deployerAddress = vm.addr(deployerPrivateKey);
         address currentOwner = GAINS(GAINS_ETH_SEPOLIA).owner();
         require(deployerAddress == currentOwner, "Must be called by the owner");
+
+        // Check if peers are set
+        checkPeers();
 
         // Start broadcast with explicit private key
         vm.startBroadcast(deployerPrivateKey);
@@ -106,7 +105,7 @@ contract BridgeGAINSScript is Script {
         console.log("Estimated Native Fee: %s", fee.nativeFee);
 
         // Send tokens
-        IOFT(address(gains)).send{ value: fee.nativeFee }(
+        IOFT(address(gains)).send{value: fee.nativeFee}(
             sendParam,
             fee,
             deployerAddress // refund address
@@ -116,9 +115,7 @@ contract BridgeGAINSScript is Script {
     }
 
     /**
-     * @notice Run function:
-     *    1) sets peers on both chains,
-     *    2) sends 1 GAINS cross-chain.
+     * @notice Run function bridges 1 GAINS cross-chain.
      */
     function run() public {
         // Get private key and verify owner
@@ -131,10 +128,7 @@ contract BridgeGAINSScript is Script {
 
         require(balance >= 1e18, "Not enough GAINS to bridge");
 
-        // 1) Set peers so each chain trusts the other
-        setPeers();
-
-        // 2) Bridge 1 GAINS
+        // Bridge 1 GAINS
         bridgeTokens(1e18, deployerAddress);
     }
 }

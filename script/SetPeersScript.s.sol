@@ -3,12 +3,12 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import "../src/GAINS.sol";
-import { IOAppCore } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
+import {IOAppCore} from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
 
 /**
  * @title SetPeersScript
  * @notice Script to set peers for the OFT contracts across multiple chains, supporting testnet and mainnet.
- * Defaults to testnet unless "PRODUCTION" is set to true.
+ * Defaults to testnet unless "MAINNET" is set to true.
  */
 contract SetPeersScript is Script {
     // LayerZero Endpoint IDs (EIDs)
@@ -40,12 +40,12 @@ contract SetPeersScript is Script {
     }
 
     /**
-     * @dev Initializes endpoint IDs and contract addresses based on production or testnet mode.
+     * @dev Initializes endpoint IDs and contract addresses based on mainnet or testnet mode.
      */
     function initializeConfig() internal {
-        bool production = vm.envBool("PRODUCTION"); // Defaults to false if not set
+        bool mainnet = vm.envBool("MAINNET"); // Defaults to false if not set
 
-        if (production) {
+        if (mainnet) {
             // Mainnet configuration
             ETHEREUM_EID = ETHEREUM_MAINNET_EID;
             AVALANCHE_EID = AVAX_MAINNET_EID;

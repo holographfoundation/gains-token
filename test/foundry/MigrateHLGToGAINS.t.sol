@@ -84,9 +84,9 @@ contract MigrateHLGToGAINSTest is Test {
         hlg.approve(address(migration), 0);
         uint256 preHLGBalance = hlg.balanceOf(alice);
         uint256 preGAINSBalance = gains.balanceOf(alice);
-        
+
         migration.migrate(0);
-        
+
         // Balances should remain unchanged
         assertEq(hlg.balanceOf(alice), preHLGBalance);
         assertEq(gains.balanceOf(alice), preGAINSBalance);
@@ -118,13 +118,13 @@ contract MigrateHLGToGAINSTest is Test {
         amounts[0] = 100 ether;
         amounts[1] = 200 ether;
         amounts[2] = 300 ether;
-        
+
         uint256 preHLGBalance = hlg.balanceOf(alice);
         uint256 preGAINSBalance = gains.balanceOf(alice);
         uint256 totalMigrated = 0;
-        
+
         vm.startPrank(alice);
-        for(uint256 i = 0; i < amounts.length; i++) {
+        for (uint256 i = 0; i < amounts.length; i++) {
             hlg.approve(address(migration), amounts[i]);
             migration.migrate(amounts[i]);
             totalMigrated += amounts[i];
@@ -251,23 +251,23 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_GasConsistency() public {
         setUpMigrationContract();
         uint256 amount = 1000 ether;
-        
+
         vm.startPrank(alice);
         hlg.approve(address(migration), amount * 3);
-        
+
         // First migration (warm up storage)
         migration.migrate(amount);
-        
+
         // Second migration (measure gas)
         uint256 gasBefore = gasleft();
         migration.migrate(amount);
         uint256 gasUsed1 = gasBefore - gasleft();
-        
+
         // Third migration (measure gas)
         gasBefore = gasleft();
         migration.migrate(amount);
         uint256 gasUsed2 = gasBefore - gasleft();
-        
+
         // Gas usage should be consistent for warm storage calls
         assertApproxEqRel(gasUsed1, gasUsed2, 0.1e18); // 10% tolerance
         vm.stopPrank();
@@ -384,7 +384,7 @@ contract MigrateHLGToGAINSTest is Test {
     }
 
     /**
-     * @notice Test that MigrationContractUpdated event fires when setting the migration contract for the first time
+     * @notice Test that MigrationContractSet event fires when setting the migration contract for the first time
      *         This must run before the migration contract is set in setUp()
      */
     function test_setMigrationContract_EmitsEvent() public {
@@ -394,7 +394,7 @@ contract MigrateHLGToGAINSTest is Test {
 
         // Expect event from GAINS showing change from zero address to new contract
         vm.expectEmit(true, true, false, true);
-        emit GAINS.MigrationContractUpdated(address(0), address(migration));
+        emit GAINS.MigrationContractSet(address(migration));
 
         gains.setMigrationContract(address(migration));
 

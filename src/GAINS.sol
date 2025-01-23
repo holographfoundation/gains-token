@@ -19,9 +19,9 @@ contract GAINS is OFT {
     address public migrationContract;
 
     /**
-     * @dev Emitted when `migrationContract` address is updated.
+     * @dev Emitted when the `migrationContract` address is set.
      */
-    event MigrationContractUpdated(address indexed previousContract, address indexed newContract);
+    event MigrationContractSet(address indexed migrationContract);
 
     /**
      * @param _name ERC20 name (e.g., "GAINS")
@@ -49,10 +49,9 @@ contract GAINS is OFT {
         if (migrationContract != address(0)) revert MigrationContractAlreadySet();
         if (_migrationContract == address(0)) revert ZeroAddress();
 
-        address oldContract = migrationContract;
         migrationContract = _migrationContract;
 
-        emit MigrationContractUpdated(oldContract, _migrationContract);
+        emit MigrationContractSet(_migrationContract);
     }
 
     /**

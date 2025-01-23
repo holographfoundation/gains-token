@@ -37,7 +37,7 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
 
     // For event-checking
     event MigratedHLGToGAINS(address indexed user, uint256 amount);
-    event MigrationContractUpdated(address indexed previous, address indexed newAddress);
+    event MigrationContractSet(address indexed migrationContract);
 
     // ------------------------------------
     // Setup
@@ -479,7 +479,7 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
     }
 
     /**
-     * @notice Tests that MigrationContractUpdated is emitted when setting the migration contract.
+     * @notice Tests that MigrationContractSet is emitted when setting the migration contract.
      *         We must deploy a fresh GAINS again to see this from zero to new address.
      */
     function test_ForkSetMigrationContract_EmitsEvent() external {
@@ -488,7 +488,7 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
         vm.startPrank(address(this));
 
         vm.expectEmit(true, true, false, true);
-        emit MigrationContractUpdated(address(0), address(migration));
+        emit MigrationContractSet(address(migration));
         freshGains.setMigrationContract(address(migration));
 
         vm.stopPrank();
