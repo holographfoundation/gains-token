@@ -69,6 +69,7 @@ Together, these contracts enable a smooth transition from HLG to GAINS, ensuring
    Foundry:
 
    ```bash
+   pnpm install
    forge install
    ```
 

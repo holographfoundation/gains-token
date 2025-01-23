@@ -52,10 +52,10 @@ contract SetPeersScript is Script {
             BASE_EID = BASE_MAINNET_EID;
             BSC_EID = BSC_MAINNET_EID;
 
-            GAINS_ETHEREUM = 0xYourEthereumMainnetAddressHere;  // Update with actual Ethereum Mainnet address
-            GAINS_AVALANCHE = 0xYourAvalancheMainnetAddressHere; // Update with actual Avalanche Mainnet address
-            GAINS_BASE = 0xYourBaseMainnetAddressHere;           // Update with actual Base Mainnet address
-            GAINS_BSC = 0xYourBscMainnetAddressHere;             // Update with actual BSC Mainnet address
+            GAINS_ETHEREUM = 0x0000000000000000000000000000000000000000; // Update with actual Ethereum Mainnet address
+            GAINS_AVALANCHE = 0x0000000000000000000000000000000000000000; // Update with actual Avalanche Mainnet address
+            GAINS_BASE = 0x0000000000000000000000000000000000000000; // Update with actual Base Mainnet address
+            GAINS_BSC = 0x0000000000000000000000000000000000000000; // Update with actual BSC Mainnet address
         } else {
             // Testnet configuration
             ETHEREUM_EID = ETHEREUM_SEPOLIA_EID;
@@ -63,10 +63,10 @@ contract SetPeersScript is Script {
             BASE_EID = BASE_SEPOLIA_EID;
             BSC_EID = BSC_TESTNET_EID;
 
-            GAINS_ETHEREUM = 0x354B7DEb6f6aa08a683461d5a6451E22458b17Ee; // Update with actual Ethereum Sepolia address
-            GAINS_AVALANCHE = 0xYourAvalancheFujiAddressHere;            // Update with actual Avalanche Fuji address
-            GAINS_BASE = 0xYourBaseSepoliaAddressHere;                  // Update with actual Base Sepolia address
-            GAINS_BSC = 0xYourBscTestnetAddressHere;                    // Update with actual BSC Testnet address
+            GAINS_ETHEREUM = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual Ethereum Sepolia address
+            GAINS_AVALANCHE = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual Avalanche Fuji address
+            GAINS_BASE = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual Base Sepolia address
+            GAINS_BSC = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual BSC Testnet address
         }
     }
 
