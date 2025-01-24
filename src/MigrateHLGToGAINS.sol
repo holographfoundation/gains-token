@@ -9,6 +9,8 @@ import "./GAINS.sol";
  * @notice Burns HLG from a user, then mints GAINS (OFT) to the same user 1:1.
  */
 contract MigrateHLGToGAINS {
+    error ZeroAddressInConstructor();
+
     /**
      * @notice Interface for the HLG token being migrated (must support burnFrom).
      */
@@ -32,7 +34,7 @@ contract MigrateHLGToGAINS {
      */
     constructor(address _hlg, address _gains) {
         if (_hlg == address(0) || _gains == address(0)) {
-            revert("MigrateHLGToGAINS: zero address in constructor");
+            revert ZeroAddressInConstructor();
         }
         hlg = HolographERC20Interface(_hlg);
         gains = GAINS(_gains);
