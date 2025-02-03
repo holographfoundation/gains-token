@@ -20,17 +20,21 @@ contract SetPeersScript is Script {
     uint32 constant BASE_SEPOLIA_EID = 40245;
     uint32 constant BSC_MAINNET_EID = 30102;
     uint32 constant BSC_TESTNET_EID = 40102;
+    uint32 constant ARBITRUM_MAINNET_EID = 30110;
+    uint32 constant ARBITRUM_TESTNET_EID = 40231;
 
-    // Contract addresses (update with actual deployed addresses)
+    // Contract addresses
     address GAINS_ETHEREUM;
     address GAINS_AVALANCHE;
     address GAINS_BASE;
     address GAINS_BSC;
+    address GAINS_ARBITRUM;
 
     uint32 ETHEREUM_EID;
     uint32 AVALANCHE_EID;
     uint32 BASE_EID;
     uint32 BSC_EID;
+    uint32 ARBITRUM_EID;
 
     /**
      * @dev Converts an address to bytes32.
@@ -51,22 +55,28 @@ contract SetPeersScript is Script {
             AVALANCHE_EID = AVAX_MAINNET_EID;
             BASE_EID = BASE_MAINNET_EID;
             BSC_EID = BSC_MAINNET_EID;
+            ARBITRUM_EID = ARBITRUM_MAINNET_EID;
 
-            GAINS_ETHEREUM = 0x0000000000000000000000000000000000000000; // Update with actual Ethereum Mainnet address
-            GAINS_AVALANCHE = 0x0000000000000000000000000000000000000000; // Update with actual Avalanche Mainnet address
-            GAINS_BASE = 0x0000000000000000000000000000000000000000; // Update with actual Base Mainnet address
-            GAINS_BSC = 0x0000000000000000000000000000000000000000; // Update with actual BSC Mainnet address
+            // TODO: Add mainnet addresses once deployed
+            GAINS_ETHEREUM = 0x0000000000000000000000000000000000000000;
+            GAINS_AVALANCHE = 0x0000000000000000000000000000000000000000;
+            GAINS_BASE = 0x0000000000000000000000000000000000000000;
+            GAINS_BSC = 0x0000000000000000000000000000000000000000;
+            GAINS_ARBITRUM = 0x0000000000000000000000000000000000000000;
         } else {
             // Testnet configuration
             ETHEREUM_EID = ETHEREUM_SEPOLIA_EID;
             AVALANCHE_EID = AVAX_FUJI_EID;
             BASE_EID = BASE_SEPOLIA_EID;
             BSC_EID = BSC_TESTNET_EID;
+            ARBITRUM_EID = ARBITRUM_TESTNET_EID;
 
-            GAINS_ETHEREUM = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual Ethereum Sepolia address
-            GAINS_AVALANCHE = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual Avalanche Fuji address
-            GAINS_BASE = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual Base Sepolia address
-            GAINS_BSC = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076; // Update with actual BSC Testnet address
+            // TODO: Update with final testnet addresses once deployed
+            GAINS_ETHEREUM = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076;
+            GAINS_AVALANCHE = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076;
+            GAINS_BASE = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076;
+            GAINS_BSC = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076;
+            GAINS_ARBITRUM = 0x27ab1eF46295406d2190f7DbC4cDCFe6590CE076;
         }
     }
 
@@ -78,28 +88,37 @@ contract SetPeersScript is Script {
         initializeConfig();
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
         vm.startBroadcast(deployerPrivateKey);
 
         // Set peers for GAINS on Ethereum
         IOAppCore(GAINS_ETHEREUM).setPeer(AVALANCHE_EID, addressToBytes32(GAINS_AVALANCHE));
         IOAppCore(GAINS_ETHEREUM).setPeer(BASE_EID, addressToBytes32(GAINS_BASE));
         IOAppCore(GAINS_ETHEREUM).setPeer(BSC_EID, addressToBytes32(GAINS_BSC));
+        IOAppCore(GAINS_ETHEREUM).setPeer(ARBITRUM_EID, addressToBytes32(GAINS_ARBITRUM));
 
         // Set peers for GAINS on Avalanche
         IOAppCore(GAINS_AVALANCHE).setPeer(ETHEREUM_EID, addressToBytes32(GAINS_ETHEREUM));
         IOAppCore(GAINS_AVALANCHE).setPeer(BASE_EID, addressToBytes32(GAINS_BASE));
         IOAppCore(GAINS_AVALANCHE).setPeer(BSC_EID, addressToBytes32(GAINS_BSC));
+        IOAppCore(GAINS_AVALANCHE).setPeer(ARBITRUM_EID, addressToBytes32(GAINS_ARBITRUM));
 
         // Set peers for GAINS on Base
         IOAppCore(GAINS_BASE).setPeer(ETHEREUM_EID, addressToBytes32(GAINS_ETHEREUM));
         IOAppCore(GAINS_BASE).setPeer(AVALANCHE_EID, addressToBytes32(GAINS_AVALANCHE));
         IOAppCore(GAINS_BASE).setPeer(BSC_EID, addressToBytes32(GAINS_BSC));
+        IOAppCore(GAINS_BASE).setPeer(ARBITRUM_EID, addressToBytes32(GAINS_ARBITRUM));
 
         // Set peers for GAINS on BSC
         IOAppCore(GAINS_BSC).setPeer(ETHEREUM_EID, addressToBytes32(GAINS_ETHEREUM));
         IOAppCore(GAINS_BSC).setPeer(AVALANCHE_EID, addressToBytes32(GAINS_AVALANCHE));
         IOAppCore(GAINS_BSC).setPeer(BASE_EID, addressToBytes32(GAINS_BASE));
+        IOAppCore(GAINS_BSC).setPeer(ARBITRUM_EID, addressToBytes32(GAINS_ARBITRUM));
+
+        // Set peers for GAINS on Arbitrum
+        IOAppCore(GAINS_ARBITRUM).setPeer(ETHEREUM_EID, addressToBytes32(GAINS_ETHEREUM));
+        IOAppCore(GAINS_ARBITRUM).setPeer(AVALANCHE_EID, addressToBytes32(GAINS_AVALANCHE));
+        IOAppCore(GAINS_ARBITRUM).setPeer(BASE_EID, addressToBytes32(GAINS_BASE));
+        IOAppCore(GAINS_ARBITRUM).setPeer(BSC_EID, addressToBytes32(GAINS_BSC));
 
         vm.stopBroadcast();
 
