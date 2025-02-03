@@ -16,6 +16,7 @@ import "../mocks/MockHLG.sol"; // The minimal mock for HolographERC20Interface
 contract MigrateHLGToGAINSTest is Test {
     // GAINS uses custom errors, so we need to define them here
     error NotMigrationContract();
+    error OwnableUnauthorizedAccount(address);
 
     event MigratedHLGToGAINS(address indexed user, uint256 amount);
 
@@ -57,6 +58,8 @@ contract MigrateHLGToGAINSTest is Test {
         vm.label(address(gains), "GAINS");
 
         // 4) Deploy MigrateHLGToGAINS referencing MockHLG + GAINS
+        //    (deploy as owner so Ownable is set correctly)
+        vm.prank(owner);
         migration = new MigrateHLGToGAINS(address(hlg), address(gains));
         vm.label(address(migration), "MigrateHLGToGAINS");
 
@@ -72,7 +75,7 @@ contract MigrateHLGToGAINSTest is Test {
     }
 
     // ------------------------------------
-    // TESTS
+    // Migration Tests
     // ------------------------------------
 
     /**
@@ -435,5 +438,68 @@ contract MigrateHLGToGAINSTest is Test {
 
         // Reset the flag so other tests remain unaffected
         hlg.setShouldBurnSucceed(true);
+    }
+
+    // ------------------------------------
+    // Pause Functionality Tests
+    // ------------------------------------
+
+    /**
+     * @notice Test that when the contract is paused, migration is prevented.
+     */
+    function test_pause_PreventsMigration() public {
+        setUpMigrationContract();
+        // Owner pauses the contract.
+        vm.prank(owner);
+        migration.pause();
+
+        vm.startPrank(alice);
+        hlg.approve(address(migration), 1000 ether);
+
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        migration.migrate(1000 ether);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that unpausing the contract allows migration.
+     */
+    function test_unpause_AllowsMigration() public {
+        setUpMigrationContract();
+        // Owner pauses the contract.
+        vm.prank(owner);
+        migration.pause();
+
+        vm.startPrank(alice);
+        hlg.approve(address(migration), 1000 ether);
+
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        migration.migrate(1000 ether);
+        vm.stopPrank();
+
+        // Owner unpauses the contract.
+        vm.prank(owner);
+        migration.unpause();
+
+        vm.startPrank(alice);
+        // Migration should now succeed.
+        migration.migrate(1000 ether);
+        vm.stopPrank();
+        assertEq(gains.balanceOf(alice), 1000 ether);
+    }
+
+    /**
+     * @notice Test that only the owner can pause and unpause the contract.
+     */
+    function test_pause_AccessControl() public {
+        // Attempt to pause from a non-owner.
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, alice));
+        migration.pause();
+
+        // Attempt to unpause from a non-owner.
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, alice));
+        migration.unpause();
     }
 }
