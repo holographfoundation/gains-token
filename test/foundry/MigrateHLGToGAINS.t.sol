@@ -82,14 +82,10 @@ contract MigrateHLGToGAINSTest is Test {
         setUpMigrationContract();
         vm.startPrank(alice);
         hlg.approve(address(migration), 0);
-        uint256 preHLGBalance = hlg.balanceOf(alice);
-        uint256 preGAINSBalance = gains.balanceOf(alice);
 
+        vm.expectRevert(MigrateHLGToGAINS.ZeroAmount.selector);
         migration.migrate(0);
 
-        // Balances should remain unchanged
-        assertEq(hlg.balanceOf(alice), preHLGBalance);
-        assertEq(gains.balanceOf(alice), preGAINSBalance);
         vm.stopPrank();
     }
 

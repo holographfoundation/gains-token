@@ -228,17 +228,8 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
         IERC20(SEP_HLG).approve(address(migration), hlgAmount);
 
         // Perform migration
-        migration.migrate(hlgAmount);
-
-        // Post-migration checks
-        uint256 deployerGainsBal = gains.balanceOf(deployer);
-        uint256 deployerHLGBal = IERC20(SEP_HLG).balanceOf(deployer);
-
-        // Verify balances unchanged
-        // If deployer had zero GAINS pre-migration, it remains zero.
-        // If deployer had some HLG pre-migration, it remains unchanged.
-        assertEq(deployerGainsBal, gains.balanceOf(deployer));
-        assertEq(deployerHLGBal, IERC20(SEP_HLG).balanceOf(deployer));
+        vm.expectRevert(MigrateHLGToGAINS.ZeroAmount.selector);
+        migration.migrate(0);
 
         vm.stopPrank();
     }

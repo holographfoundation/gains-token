@@ -10,6 +10,7 @@ import "./GAINS.sol";
  */
 contract MigrateHLGToGAINS {
     error ZeroAddressInConstructor();
+    error ZeroAmount();
     error BurnFromFailed();
 
     /**
@@ -47,6 +48,10 @@ contract MigrateHLGToGAINS {
      * @param amount The amount of HLG to burn and convert.
      */
     function migrate(uint256 amount) external {
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
+
         // @notice The user must have approved the HLG contract before calling.
         if (!hlg.burnFrom(msg.sender, amount)) {
             revert BurnFromFailed();
