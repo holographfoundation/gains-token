@@ -18,6 +18,9 @@ contract MockHLG is HolographERC20Interface {
     string public symbol;
     uint8 public decimals = 18;
 
+    // Custom addition to allow the test to change the behavior of the burnFrom function
+    bool public shouldBurnSucceed = true;
+
     mapping(address => uint256) internal _balanceOf;
     mapping(address => mapping(address => uint256)) internal _allowance;
     mapping(address => uint256) private _nonces;
@@ -30,6 +33,11 @@ contract MockHLG is HolographERC20Interface {
     constructor(string memory _name, string memory _symbol) {
         name = _name;
         symbol = _symbol;
+    }
+
+    // Custom addition to allow the test to change the behavior of the burnFrom function
+    function setShouldBurnSucceed(bool _shouldSucceed) external {
+        shouldBurnSucceed = _shouldSucceed;
     }
 
     // --------------------------------------------------
@@ -226,6 +234,10 @@ contract MockHLG is HolographERC20Interface {
     }
 
     function burnFrom(address account, uint256 amount) external returns (bool) {
+        // Custom addition so we can test that our custom error BurnFromFailed is thrown in MigrateHLGToGAINS
+        if (!shouldBurnSucceed) {
+            return false;
+        }
         require(_allowance[account][msg.sender] >= amount, "ERC20: amount exceeds allowance");
         require(_balanceOf[account] >= amount, "ERC20: amount exceeds balance");
         _allowance[account][msg.sender] -= amount;
