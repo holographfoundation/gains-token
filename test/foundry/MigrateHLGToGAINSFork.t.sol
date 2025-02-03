@@ -507,4 +507,37 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
 
         vm.stopPrank();
     }
+
+    /**
+     * @notice Tests that migration reverts with BurnFromFailed when burnFrom fails,
+     *         using fresh local instances of MockHLG, GAINS, and MigrateHLGToGAINS.
+     */
+    function test_ForkMigrateHLGToGAINS_Revert_BurnFromFailed() external {
+        // Deploy a fresh instance of MockHLG to simulate burn failure.
+        MockHLG localMockHLG = new MockHLG("Mock HLG", "HLG");
+        // Mint tokens to the deployer.
+        localMockHLG.mint(deployer, 10_000 ether);
+
+        // Deploy a fresh GAINS instance (this one has no migration contract set yet).
+        GAINS localGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), address(this));
+
+        // Deploy a new migration contract using the local MockHLG and local GAINS.
+        MigrateHLGToGAINS localMigration = new MigrateHLGToGAINS(address(localMockHLG), address(localGains));
+        // Set the migration contract in the fresh GAINS instance.
+        localGains.setMigrationContract(address(localMigration));
+
+        vm.startPrank(deployer);
+        // Approve the migration contract to spend tokens.
+        localMockHLG.approve(address(localMigration), 1000 ether);
+        // Force burnFrom to return false.
+        localMockHLG.setShouldBurnSucceed(false);
+
+        // Expect the migration to revert with the custom error.
+        vm.expectRevert(MigrateHLGToGAINS.BurnFromFailed.selector);
+        localMigration.migrate(1000 ether);
+        vm.stopPrank();
+
+        // Reset the flag so other tests remain unaffected
+        localMockHLG.setShouldBurnSucceed(true);
+    }
 }

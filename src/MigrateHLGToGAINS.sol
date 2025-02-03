@@ -10,6 +10,7 @@ import "./GAINS.sol";
  */
 contract MigrateHLGToGAINS {
     error ZeroAddressInConstructor();
+    error BurnFromFailed();
 
     /**
      * @notice Interface for the HLG token being migrated (must support burnFrom).
@@ -46,8 +47,10 @@ contract MigrateHLGToGAINS {
      * @param amount The amount of HLG to burn and convert.
      */
     function migrate(uint256 amount) external {
-        // The user must have approved the HLG contract before calling.
-        hlg.burnFrom(msg.sender, amount);
+        // @notice The user must have approved the HLG contract before calling.
+        if (!hlg.burnFrom(msg.sender, amount)) {
+            revert BurnFromFailed();
+        }
 
         // Mint GAINS 1:1 to the caller
         gains.mintForMigration(msg.sender, amount);

@@ -418,4 +418,26 @@ contract MigrateHLGToGAINSTest is Test {
         gains.setMigrationContract(address(0xDEAD));
         vm.stopPrank();
     }
+
+    /**
+     * @notice Test that migration reverts with BurnFromFailed when burnFrom returns false.
+     */
+    function test_migrate_Revert_BurnFromFailed() public {
+        setUpMigrationContract();
+        uint256 amount = 1000 ether;
+
+        vm.startPrank(alice);
+        // Approve the migration contract
+        hlg.approve(address(migration), amount);
+        // Force burnFrom to return false
+        hlg.setShouldBurnSucceed(false);
+
+        // Expect revert with the custom error selector
+        vm.expectRevert(MigrateHLGToGAINS.BurnFromFailed.selector);
+        migration.migrate(amount);
+        vm.stopPrank();
+
+        // Reset the flag so other tests remain unaffected
+        hlg.setShouldBurnSucceed(true);
+    }
 }
