@@ -14,7 +14,6 @@ import "../mocks/MockHLG.sol"; // The minimal mock for HolographERC20Interface
  *         using MockHLG to replicate real HolographUtilityToken behavior.
  */
 contract MigrateHLGToGAINSTest is Test {
-    error NotMigrationContract();
     error OwnableUnauthorizedAccount(address);
 
     // Contracts
