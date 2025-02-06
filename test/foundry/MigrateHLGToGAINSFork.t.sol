@@ -17,10 +17,11 @@ import "../mocks/MockHLG.sol";
  *         and gas usage patterns to ensure robust coverage.
  */
 contract MigrateHLGToGAINSFork is TestHelperOz5 {
-    // GAINS uses custom errors so we need to define them here
     error NotMigrationContract();
     error ZeroAddress();
     error MigrationContractAlreadySet();
+    error NotOnAllowlist();
+    error OwnableUnauthorizedAccount(address);
 
     // The HLG proxy (HolographUtilityToken) address on Sepolia
     address internal constant SEP_HLG = 0x5Ff07042d14E60EC1de7a860BBE968344431BaA1;
@@ -530,5 +531,117 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
 
         // Reset the flag so other tests remain unaffected
         localMockHLG.setShouldBurnSucceed(true);
+    }
+
+    // ------------------------------------
+    // Allowlist Tests (Newly Added)
+    // ------------------------------------
+
+    /**
+     * @notice Ensures migration fails if the user is not on the allowlist.
+     */
+    function test_ForkAllowlist_RevertForNonAllowlisted() external {
+        vm.startPrank(address(this)); // Owner activates allowlist
+        migration.setAllowlistActive(true);
+        vm.stopPrank();
+
+        vm.startPrank(deployer);
+        IERC20(SEP_HLG).approve(address(migration), 500 ether);
+        vm.expectRevert(NotOnAllowlist.selector);
+        migration.migrate(500 ether);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Ensures migration succeeds for allowlisted users.
+     */
+    function test_ForkAllowlist_AllowsMigrationForAllowlisted() external {
+        vm.startPrank(address(this)); // Owner activates allowlist and adds deployer
+        migration.setAllowlistActive(true);
+        migration.addToAllowlist(deployer);
+        vm.stopPrank();
+
+        vm.startPrank(deployer);
+        IERC20(SEP_HLG).approve(address(migration), 500 ether);
+        migration.migrate(500 ether);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Ensures batch adding to allowlist works.
+     */
+    function test_ForkAllowlist_BatchAdd() external {
+        address[] memory accounts = new address[](2);
+        accounts[0] = deployer;
+        accounts[1] = secondMigrator;
+
+        vm.startPrank(address(this));
+        migration.batchAddToAllowlist(accounts);
+        vm.stopPrank();
+
+        assertTrue(migration.allowlist(deployer), "Deployer should be in allowlist");
+        assertTrue(migration.allowlist(secondMigrator), "SecondMigrator should be in allowlist");
+    }
+
+    /**
+     * @notice Ensures removing from the allowlist works.
+     */
+    function test_ForkAllowlist_Remove() external {
+        vm.startPrank(address(this));
+        migration.addToAllowlist(deployer);
+        assertTrue(migration.allowlist(deployer), "Deployer should be in allowlist");
+
+        migration.removeFromAllowlist(deployer);
+        assertTrue(!migration.allowlist(deployer), "Deployer should not be in allowlist");
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Ensures allowlist status change emits an event.
+     */
+    function test_ForkAllowlist_AllowlistStatusChangeEmitsEvent() external {
+        vm.startPrank(address(this));
+        vm.expectEmit(true, false, false, true);
+        emit MigrateHLGToGAINS.AllowlistStatusChanged(true);
+        migration.setAllowlistActive(true);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Ensures inactive allowlist does not block migration.
+     */
+    function test_ForkAllowlist_InactiveAllowsMigration() external {
+        vm.startPrank(address(this));
+        migration.setAllowlistActive(false);
+        vm.stopPrank();
+
+        vm.startPrank(deployer);
+        IERC20(SEP_HLG).approve(address(migration), 500 ether);
+        migration.migrate(500 ether);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Ensures adding a zero address to allowlist reverts.
+     */
+    function test_ForkAllowlist_RevertOnZeroAddressAddition() external {
+        vm.startPrank(address(this));
+        vm.expectRevert(MigrateHLGToGAINS.ZeroAddressProvided.selector);
+        migration.addToAllowlist(address(0));
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Ensures batch adding a zero address reverts.
+     */
+    function test_ForkAllowlist_RevertOnZeroAddressBatchAddition() external {
+        address[] memory accounts = new address[](2);
+        accounts[0] = deployer;
+        accounts[1] = address(0);
+
+        vm.startPrank(address(this));
+        vm.expectRevert(MigrateHLGToGAINS.ZeroAddressProvided.selector);
+        migration.batchAddToAllowlist(accounts);
+        vm.stopPrank();
     }
 }
