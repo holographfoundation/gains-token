@@ -17,6 +17,7 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
     error BurnFromFailed();
     error NotOnAllowlist();
     error ZeroAddressProvided();
+    error AllowlistReactivationNotAllowed();
 
     /**
      * @notice Interface for the HLG token being migrated (must support burnFrom).
@@ -108,10 +109,15 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
     }
 
     /**
-     * @notice Toggles the allowlist enforcement.
+     * @notice Sets the allowlist active status.
+     * @dev Once deactivated, the allowlist cannot be reactivated.
      * @param active When true, only allowlisted accounts can migrate.
      */
     function setAllowlistActive(bool active) external onlyOwner {
+        // Once deactivated (false), allowlist cannot be reactivated.
+        if (!allowlistActive && active) {
+            revert AllowlistReactivationNotAllowed();
+        }
         allowlistActive = active;
         emit AllowlistStatusChanged(active);
     }
@@ -122,13 +128,10 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
      */
     function batchAddToAllowlist(address[] calldata accounts) external onlyOwner {
         uint256 len = accounts.length;
-        for (uint256 i = 0; i < len; ) {
+        for (uint256 i = 0; i < len; i++) {
             if (accounts[i] == address(0)) revert ZeroAddressProvided();
             allowlist[accounts[i]] = true;
             emit AddedToAllowlist(accounts[i]);
-            unchecked {
-                ++i;
-            }
         }
     }
 
