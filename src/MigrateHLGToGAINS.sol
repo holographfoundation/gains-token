@@ -66,6 +66,10 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
         }
         hlg = HolographERC20Interface(_hlg);
         gains = GAINS(_gains);
+
+        // By default, the allowlist is active.
+        // This will be turned off when the migration is open to the public.
+        allowlistActive = true;
     }
 
     /**

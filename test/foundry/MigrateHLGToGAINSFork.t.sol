@@ -68,6 +68,12 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
         // Set MigrateHLGToGAINS as the migration contract in GAINS
         vm.prank(owner);
         gains.setMigrationContract(address(migration));
+
+        // By default, the allowlist is active.
+        // It is turned off to simulate the migration being open to the public.
+        // The allowlist specific tests reenable the allowlist to validate it's functionality.
+        vm.prank(owner);
+        migration.setAllowlistActive(false);
     }
 
     // ------------------------------------------------
@@ -420,14 +426,14 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
         MockHLG localHLG = new MockHLG("Mock HLG", "HLG");
         localHLG.mint(alice, 1000 ether);
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         GAINS freshGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), owner);
-
-        vm.prank(owner);
         MigrateHLGToGAINS localMigration = new MigrateHLGToGAINS(address(localHLG), address(freshGains));
-
-        vm.prank(owner);
         freshGains.setMigrationContract(address(localMigration));
+
+        // Add Alice to the allowlist
+        localMigration.addToAllowlist(alice);
+        vm.stopPrank();
 
         vm.startPrank(alice);
         localHLG.approve(address(localMigration), 1000 ether);

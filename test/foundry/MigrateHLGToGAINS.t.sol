@@ -62,6 +62,12 @@ contract MigrateHLGToGAINSTest is Test {
         // 5) Mint MockHLG tokens to Alice and Bob for testing
         hlg.mint(alice, ALICE_STARTING_HLG);
         hlg.mint(bob, BOB_STARTING_HLG);
+
+        // By default, the allowlist is active.
+        // It is turned off to simulate the migration being open to the public.
+        // The allowlist specific tests reenable the allowlist to validate it's functionality.
+        vm.prank(owner);
+        migration.setAllowlistActive(false);
     }
 
     /// @dev Helper to set up migration contract for tests that need it
@@ -414,6 +420,10 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_Revert_BurnFromFailed() public {
         setUpMigrationContract();
         uint256 amount = 1000 ether;
+
+        // Add Alice to the allowlist
+        vm.prank(owner);
+        migration.addToAllowlist(alice);
 
         vm.startPrank(alice);
         // Approve the migration contract
