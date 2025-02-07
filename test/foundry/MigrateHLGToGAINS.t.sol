@@ -88,7 +88,7 @@ contract MigrateHLGToGAINSTest is Test {
         setUpMigrationContract();
         // Disable allowlist to simulate public migration.
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         vm.startPrank(alice);
         hlg.approve(address(migration), 0);
@@ -103,7 +103,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_OneToken() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 1;
         vm.startPrank(alice);
@@ -122,7 +122,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_MultipleCalls() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256[] memory amounts = new uint256[](3);
         amounts[0] = 100 ether;
@@ -148,7 +148,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_MultipleMigrators() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 1000 ether;
 
@@ -179,7 +179,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_StateChecks() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 1000 ether;
         uint256 preTotalHLG = hlg.totalSupply();
@@ -198,7 +198,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_FullBalance() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 fullBalance = hlg.balanceOf(alice);
         vm.startPrank(alice);
@@ -215,7 +215,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_ApprovalState() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 1000 ether;
         uint256 approval = 2000 ether;
@@ -232,7 +232,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_RevertWithPartialApproval() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 1000 ether;
         uint256 partialApproval = amount - 1;
@@ -249,7 +249,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_EventSequence() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 1000 ether;
         vm.startPrank(alice);
@@ -266,7 +266,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_GasConsistency() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 1000 ether;
         vm.startPrank(alice);
@@ -290,7 +290,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_HappyPath() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         // Check initial balances
         assertEq(hlg.balanceOf(alice), ALICE_STARTING_HLG);
@@ -312,7 +312,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_Revert_NoApproval() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         vm.startPrank(alice);
         vm.expectRevert("ERC20: amount exceeds allowance");
@@ -326,7 +326,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_Revert_InsufficientBalance() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 excessiveAmount = ALICE_STARTING_HLG + 1 ether;
         vm.startPrank(alice);
@@ -343,7 +343,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_mintForMigration_RevertIfNotMigrationContract() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         vm.startPrank(alice);
         vm.expectRevert(GAINS.NotMigrationContract.selector);
@@ -368,7 +368,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_EventEmission() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         uint256 amount = 500 ether;
         vm.startPrank(alice);
@@ -425,7 +425,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_migrate_Revert_BurnFromFailed() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
         uint256 amount = 1000 ether;
         // Add Alice to allowlist (for tests that require it, though allowlist is off here)
         vm.prank(owner);
@@ -462,7 +462,7 @@ contract MigrateHLGToGAINSTest is Test {
     function test_unpause_AllowsMigration() public {
         setUpMigrationContract();
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
 
         vm.prank(owner);
         migration.pause();
@@ -557,8 +557,8 @@ contract MigrateHLGToGAINSTest is Test {
     function test_allowlist_AllowlistStatusChangeEmitsEvent() public {
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit MigrateHLGToGAINS.AllowlistStatusChanged(true);
-        migration.setAllowlistActive(true); // No state change, as it's already true.
+        emit MigrateHLGToGAINS.AllowlistDeactivated();
+        migration.deactivateAllowlist();
     }
 
     /**
@@ -568,7 +568,7 @@ contract MigrateHLGToGAINSTest is Test {
         setUpMigrationContract();
         uint256 amount = 500 ether;
         vm.prank(owner);
-        migration.setAllowlistActive(false);
+        migration.deactivateAllowlist();
         vm.startPrank(alice);
         hlg.approve(address(migration), amount);
         migration.migrate(amount);

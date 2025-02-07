@@ -22,7 +22,7 @@ import "../src/MigrateHLGToGAINS.sol";
  *
  * 3) Enable or disable the allowlist:
  *    forge script script/ManageAllowlist.s.sol:ManageAllowlist \
- *      --sig "setAllowlistActive(bool)" "true" \
+ *      --sig "deactivateAllowlist()" \
  *      --rpc-url <YOUR_RPC> --broadcast
  *
  * Make `MIGRATION_CONTRACT` and `PRIVATE_KEY` set in .env
@@ -102,16 +102,15 @@ contract ManageAllowlist is Script {
     }
 
     /**
-     * @notice Enable or disable the entire allowlist.
-     * @param active True to enable the allowlist, false to disable it.
+     * @notice Disable the entire allowlist.
      */
-    function setAllowlistActive(bool active) external {
+    function deactivateAllowlist() external {
         MigrateHLGToGAINS migration = getMigrationContract();
 
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(privateKey);
 
-        migration.setAllowlistActive(active);
+        migration.deactivateAllowlist();
 
         vm.stopBroadcast();
     }
