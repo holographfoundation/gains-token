@@ -122,6 +122,58 @@ Whitelists cross-chain peers so GAINS contracts trust each other on different en
 forge script script/SetPeersScript.s.sol:SetPeersScript --rpc-url <RPC> --broadcast -vvvv
 ```
 
+#### ManageAllowlist
+
+Manages the allowlist in MigrateHLGToGAINS using addresses from a JSON file.
+You can add, remove, and toggle the allowlist.
+
+Example JSON file allowlist.json:
+
+```
+{
+  "allowlist": [
+    "0x1111111111111111111111111111111111111111",
+    "0x2222222222222222222222222222222222222222"
+  ]
+}
+```
+
+Add addresses from JSON:
+
+```bash
+forge script script/ManageAllowlist.s.sol:ManageAllowlist \
+  --sig "addAddressesFromJson(string,string)" "('./allowlist.json','allowlist')" \
+  --rpc-url <RPC> \
+  --broadcast
+```
+
+Remove addresses from JSON:
+
+```bash
+forge script script/ManageAllowlist.s.sol:ManageAllowlist \
+  --sig "removeAddressesFromJson(string,string)" "('./allowlist.json','allowlist')" \
+  --rpc-url <RPC> \
+  --broadcast
+```
+
+Enable the allowlist:
+
+```bash
+forge script script/ManageAllowlist.s.sol:ManageAllowlist \
+  --sig "setAllowlistActive(bool)" "true" \
+  --rpc-url <RPC> \
+  --broadcast
+```
+
+Disable the allowlist:
+
+```bash
+forge script script/ManageAllowlist.s.sol:ManageAllowlist \
+  --sig "setAllowlistActive(bool)" "false" \
+  --rpc-url <RPC> \
+  --broadcast
+```
+
 ## Usage
 
 ### Migrating HLG -> GAINS

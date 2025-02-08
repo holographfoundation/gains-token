@@ -15,6 +15,8 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
     error ZeroAddressInConstructor();
     error ZeroAmount();
     error BurnFromFailed();
+    error NotOnAllowlist();
+    error ZeroAddressProvided();
 
     /**
      * @notice Interface for the HLG token being migrated (must support burnFrom).
@@ -34,6 +36,27 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
     event MigratedHLGToGAINS(address indexed user, uint256 amount);
 
     /**
+     * @notice Emitted when an account is added to the allowlist.
+     */
+    event AddedToAllowlist(address indexed account);
+
+    /**
+     * @notice Emitted when an account is removed from the allowlist.
+     */
+    event RemovedFromAllowlist(address indexed account);
+
+    /**
+     * @notice Emitted when the allowlist is deactivated.
+     */
+    event AllowlistDeactivated();
+
+    /// @notice When active, only addresses in the allowlist may migrate.
+    bool public allowlistActive;
+
+    /// @notice Mapping of allowed addresses.
+    mapping(address => bool) public allowlist;
+
+    /**
      * @param _hlg Address of the deployed HLG (HolographUtilityToken) contract proxy.
      * @param _gains Address of the deployed GAINS (OFT) contract.
      */
@@ -43,6 +66,10 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
         }
         hlg = HolographERC20Interface(_hlg);
         gains = GAINS(_gains);
+
+        // By default, the allowlist is active.
+        // This will be turned off when the migration is open to the public.
+        allowlistActive = true;
     }
 
     /**
@@ -62,19 +89,54 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
     }
 
     /**
+     * @notice Adds a single account to the allowlist.
+     * @param account The account to add.
+     */
+    function addToAllowlist(address account) external onlyOwner {
+        if (account == address(0)) revert ZeroAddressProvided();
+        allowlist[account] = true;
+        emit AddedToAllowlist(account);
+    }
+
+    /**
+     * @notice Removes an account from the allowlist.
+     * @param account The account to remove.
+     */
+    function removeFromAllowlist(address account) external onlyOwner {
+        allowlist[account] = false;
+        emit RemovedFromAllowlist(account);
+    }
+
+    function deactivateAllowlist() external onlyOwner {
+        allowlistActive = false;
+        emit AllowlistDeactivated();
+    }
+
+    /**
+     * @notice Batch-adds multiple accounts to the allowlist.
+     * @param accounts The array of accounts to add.
+     */
+    function batchAddToAllowlist(address[] calldata accounts) external onlyOwner {
+        uint256 len = accounts.length;
+        for (uint256 i; i < len; ++i) {
+            if (accounts[i] == address(0)) revert ZeroAddressProvided();
+            allowlist[accounts[i]] = true;
+            emit AddedToAllowlist(accounts[i]);
+        }
+    }
+
+    /**
      * @notice Migrate the caller's HLG into GAINS 1:1.
-     * @dev The caller must first approve this contract on HLG for `amount`. Function is disabled when paused.
+     * @dev The caller must first approve this contract on HLG for `amount`.
+     *      Function is disabled when paused.
      * @param amount The amount of HLG to burn and convert.
      */
     function migrate(uint256 amount) external whenNotPaused {
-        if (amount == 0) {
-            revert ZeroAmount();
-        }
+        if (amount == 0) revert ZeroAmount();
+        if (allowlistActive && !allowlist[msg.sender]) revert NotOnAllowlist();
 
-        // @notice The user must have approved the HLG contract before calling.
-        if (!hlg.burnFrom(msg.sender, amount)) {
-            revert BurnFromFailed();
-        }
+        // The user must have approved the HLG contract before calling.
+        if (!hlg.burnFrom(msg.sender, amount)) revert BurnFromFailed();
 
         // Mint GAINS 1:1 to the caller.
         gains.mintForMigration(msg.sender, amount);

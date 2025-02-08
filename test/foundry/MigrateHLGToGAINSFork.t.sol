@@ -10,525 +10,574 @@ import "../mocks/MockHLG.sol";
 
 /**
  * @title MigrateHLGToGAINSFork
- * @notice Demonstrates how to fork Sepolia to test HLG -> GAINS migration in a more realistic environment.
- *
- *         This suite has been expanded to mirror the coverage found in the non-forked version.
- *         It tests multiple migration scenarios, event emissions, setMigrationContract flows,
- *         and gas usage patterns to ensure robust coverage.
+ * @notice Fork-based test suite for HLG -> GAINS migration on Sepolia,
+ *         mirroring the structure and naming of the non-forked suite.
  */
 contract MigrateHLGToGAINSFork is TestHelperOz5 {
-    // GAINS uses custom errors so we need to define them here
-    error NotMigrationContract();
-    error ZeroAddress();
-    error MigrationContractAlreadySet();
+    error OwnableUnauthorizedAccount(address);
 
-    // The HLG proxy (HolographUtilityToken) address on Sepolia
+    // ------------------------------------------------
+    // Addresses and contracts
+    // ------------------------------------------------
+
+    // Sepolia HLG contract
     address internal constant SEP_HLG = 0x5Ff07042d14E60EC1de7a860BBE968344431BaA1;
 
-    // We'll deploy our own GAINS + MigrateHLGToGAINS on the fork
+    // Matching the variable naming from the non-forked version
+    address internal owner = address(0x12345);
+    address internal alice = 0x5f5C3548f96C7DA33A18E5F2F2f13519e1c8bD0d; // Deployer on Sepolia in your environment
+    address internal bob = 0x000000000000000000000000000000000000dEaD; // Another address used for testing
+
     GAINS internal gains;
     MigrateHLGToGAINS internal migration;
 
-    // The address of the deployer of HolographUtilityToken on Sepolia
-    address internal deployer = 0x5f5C3548f96C7DA33A18E5F2F2f13519e1c8bD0d;
-
-    // Gets funded with HLG for testing
-    address internal secondMigrator = 0x000000000000000000000000000000000000dEaD;
-
-    // For event-checking
-    event MigratedHLGToGAINS(address indexed user, uint256 amount);
-    event MigrationContractSet(address indexed migrationContract);
-
-    // ------------------------------------
+    // ------------------------------------------------
     // Setup
-    // ------------------------------------
+    // ------------------------------------------------
 
+    /**
+     * @notice Fork Sepolia, deploy new GAINS & MigrateHLGToGAINS referencing real HLG,
+     *         then label addresses for clarity.
+     */
     function setUp() public override {
         super.setUp();
 
         // Fork Sepolia
         vm.createSelectFork(vm.envString("SEPOLIA_RPC_URL"));
 
-        // Set up LayerZero endpoints
+        // Label addresses
+        vm.label(owner, "Owner");
+        vm.label(alice, "Alice");
+        vm.label(bob, "Bob");
+        vm.label(SEP_HLG, "SepoliaHLG");
+
+        // Set up a mock endpoint for GAINS if needed (LayerZero).
+        // Using index '1' to match a minimal local environment.
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
-        // Deploy GAINS contract
-        gains = new GAINS("GAINS", "GAINS", address(endpoints[1]), address(this));
+        // Deploy GAINS with "owner" as the contract owner
+        vm.prank(owner);
+        gains = new GAINS("GAINS", "GAINS", address(endpoints[1]), owner);
+        vm.label(address(gains), "GAINS");
 
-        // Deploy MigrateHLGToGAINS contract
+        // Deploy MigrateHLGToGAINS referencing SEP_HLG + GAINS
+        vm.prank(owner);
         migration = new MigrateHLGToGAINS(SEP_HLG, address(gains));
+        vm.label(address(migration), "MigrateHLGToGAINS");
 
-        // Set MigrateHLGToGAINS as the migration contract for GAINS
+        // Set MigrateHLGToGAINS as the migration contract in GAINS
+        vm.prank(owner);
         gains.setMigrationContract(address(migration));
 
-        // Label addresses for better traceability
-        vm.label(SEP_HLG, "SepoliaHLG");
-        vm.label(address(gains), "GAINS");
-        vm.label(address(migration), "MigrateHLGToGAINS");
-        vm.label(deployer, "deployer");
-        vm.label(secondMigrator, "secondMigrator");
+        // By default, the allowlist is active (as set in the constructor).
+        // For public migration tests, the allowlist will be disabled explicitly in the test.
     }
 
-    // ------------------------------------
-    // TESTS
-    // ------------------------------------
-
+    // ------------------------------------------------
+    // Migration Tests (Public Migration)
+    // ------------------------------------------------
     /**
-     * @notice Verifies basic migration scenario with 1 HLG.
+     * @notice Test that migration reverts with ZeroAmount when the amount is zero.
      */
-    function test_ForkMigrateHLGToGAINS_HappyPath() external {
-        uint256 hlgAmount = 1 ether;
+    function test_migrate_ZeroAmount() public {
+        // Disable allowlist to simulate public migration.
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        vm.startPrank(deployer);
-
-        // Approve the migration
-        IERC20(SEP_HLG).approve(address(migration), hlgAmount);
-
-        // Record pre-migration balances
-        uint256 preHLGBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 preGainsBalance = gains.balanceOf(deployer);
-
-        // Perform migration
-        migration.migrate(hlgAmount);
-
-        // Record post-migration balances
-        uint256 postHLGBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 postGainsBalance = gains.balanceOf(deployer);
-
-        // Assertions
-        assertEq(preHLGBalance - hlgAmount, postHLGBalance);
-        assertEq(preGainsBalance + hlgAmount, postGainsBalance);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Ensures migration fails if user does not approve MigrateHLGToGAINS.
-     */
-    function test_ForkMigrateHLGToGAINS_Revert_NoApproval() external {
-        uint256 hlgAmount = 1 ether;
-
-        vm.startPrank(deployer);
-
-        // Attempt migration without approval
-        vm.expectRevert("ERC20: amount exceeds allowance");
-        migration.migrate(hlgAmount);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Ensures migration fails if user attempts to migrate more HLG than they hold.
-     */
-    function test_ForkMigrateHLGToGAINS_Revert_InsufficientBalance() external {
-        uint256 deployerBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 excessiveAmount = deployerBalance + 1 ether;
-
-        vm.startPrank(deployer);
-
-        // Approve migration for more than balance
-        IERC20(SEP_HLG).approve(address(migration), excessiveAmount);
-
-        // Attempt migration
-        vm.expectRevert("ERC20: amount exceeds balance");
-        migration.migrate(excessiveAmount);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Confirms that only the migration contract can call `mintForMigration` on GAINS.
-     */
-    function test_ForkMintForMigration_RevertIfNotMigrationContract() external {
-        uint256 gainsAmount = 1 ether;
-
-        vm.startPrank(deployer);
-
-        // Attempt direct mint
-        vm.expectRevert(abi.encodeWithSignature("NotMigrationContract()"));
-        gains.mintForMigration(deployer, gainsAmount);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Ensures only the GAINS owner can set the migration contract.
-     */
-    function test_ForkSetMigrationContract_RevertIfNotOwner() external {
-        address newMigrationContract = address(0xDEAD);
-
-        vm.startPrank(deployer);
-
-        // Attempt to set migration contract as a non-owner
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", deployer));
-        gains.setMigrationContract(newMigrationContract);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Verifies event emission during successful migration.
-     */
-    function test_ForkMigrateHLGToGAINS_EventEmission() external {
-        uint256 hlgAmount = 1 ether;
-
-        vm.startPrank(deployer);
-
-        // Approve migration
-        IERC20(SEP_HLG).approve(address(migration), hlgAmount);
-
-        // Expect the event
-        vm.expectEmit(true, true, false, true);
-        emit MigratedHLGToGAINS(deployer, hlgAmount);
-
-        // Perform migration
-        migration.migrate(hlgAmount);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Ensures that no unexpected state changes occur during migration with exact amounts.
-     */
-    function test_ForkMigrateHLGToGAINS_StateConsistency() external {
-        uint256 hlgAmount = 2 ether;
-
-        vm.startPrank(deployer);
-
-        // Approve migration
-        IERC20(SEP_HLG).approve(address(migration), hlgAmount);
-
-        // Pre-migration balances
-        uint256 preHLGBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 preGainsBalance = gains.balanceOf(deployer);
-
-        // Perform migration
-        migration.migrate(hlgAmount);
-
-        // Post-migration balances
-        uint256 postHLGBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 postGainsBalance = gains.balanceOf(deployer);
-
-        // Verify balances
-        assertEq(preHLGBalance - hlgAmount, postHLGBalance);
-        assertEq(preGainsBalance + hlgAmount, postGainsBalance);
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Attempts migration with zero HLG, expecting no state change or errors.
-     */
-    function test_ForkMigrateHLGToGAINS_ZeroAmount() external {
-        uint256 hlgAmount = 0;
-
-        vm.startPrank(deployer);
-
-        // Approve migration
-        IERC20(SEP_HLG).approve(address(migration), hlgAmount);
-
-        // Perform migration
+        vm.startPrank(alice);
+        IERC20(SEP_HLG).approve(address(migration), 0);
         vm.expectRevert(MigrateHLGToGAINS.ZeroAmount.selector);
         migration.migrate(0);
-
         vm.stopPrank();
     }
 
     /**
-     * @notice Tests multiple consecutive migrations from the same address.
+     * @notice Test that migration works for one token.
      */
-    function test_ForkMigrateHLGToGAINS_MultipleCalls() external {
-        // We'll do multiple calls from deployer.
+    function test_migrate_OneToken() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
+
+        vm.startPrank(alice);
+        uint256 amount = 1 ether;
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        uint256 preHLG = IERC20(SEP_HLG).balanceOf(alice);
+        uint256 preGAINS = gains.balanceOf(alice);
+        migration.migrate(amount);
+        assertEq(IERC20(SEP_HLG).balanceOf(alice), preHLG - amount);
+        assertEq(gains.balanceOf(alice), preGAINS + amount);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that migration works for multiple calls.
+     */
+    function test_migrate_MultipleCalls() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
+
+        vm.startPrank(alice);
         uint256[] memory amounts = new uint256[](3);
-        amounts[0] = 0.5 ether;
-        amounts[1] = 1 ether;
-        amounts[2] = 2 ether;
-
-        vm.startPrank(deployer);
-
-        // Approve for total
-        uint256 total = amounts[0] + amounts[1] + amounts[2];
-        IERC20(SEP_HLG).approve(address(migration), total);
-
-        uint256 preHLGBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 preGAINSBalance = gains.balanceOf(deployer);
-
-        // Perform each migration
+        amounts[0] = 100 ether;
+        amounts[1] = 200 ether;
+        amounts[2] = 300 ether;
+        uint256 totalToApprove = amounts[0] + amounts[1] + amounts[2];
+        IERC20(SEP_HLG).approve(address(migration), totalToApprove);
+        uint256 preHLG = IERC20(SEP_HLG).balanceOf(alice);
+        uint256 preGAINS = gains.balanceOf(alice);
         uint256 migrated;
         for (uint256 i = 0; i < amounts.length; i++) {
             migration.migrate(amounts[i]);
             migrated += amounts[i];
-
-            assertEq(IERC20(SEP_HLG).balanceOf(deployer), preHLGBalance - migrated);
-            assertEq(gains.balanceOf(deployer), preGAINSBalance + migrated);
+            assertEq(IERC20(SEP_HLG).balanceOf(alice), preHLG - migrated);
+            assertEq(gains.balanceOf(alice), preGAINS + migrated);
         }
-
         vm.stopPrank();
     }
 
     /**
-     * @notice Tests migrating 1 token works correctly.
+     * @notice Test that migration works for multiple migrators.
      */
-    function test_ForkMigrateHLGToGAINS_OneToken() external {
-        uint256 amount = 1 ether; // 1 token
+    function test_migrate_MultipleMigrators() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        vm.startPrank(deployer);
+        uint256 amount = 500 ether;
 
-        // Approve migration
-        IERC20(SEP_HLG).approve(address(migration), amount);
-
-        // Record pre-migration balances
-        uint256 preHLGBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 preGainsBalance = gains.balanceOf(deployer);
-
-        // Perform migration
-        migration.migrate(amount);
-
-        // Record post-migration balances
-        uint256 postHLGBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 postGainsBalance = gains.balanceOf(deployer);
-
-        // Verify balances
-        assertEq(postHLGBalance, preHLGBalance - amount, "HLG balance mismatch after migration");
-        assertEq(postGainsBalance, preGainsBalance + amount, "GAINS balance mismatch after migration");
-
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Tests migration from multiple different addresses.
-     *         Requires that both addresses actually hold HLG on Sepolia.
-     */
-    function test_ForkMigrateHLGToGAINS_MultipleMigrators() external {
-        uint256 amount = 0.5 ether;
-
-        // 1) Fund the secondMigrator if it has zero HLG
-        uint256 secondMigratorPreHLG = IERC20(SEP_HLG).balanceOf(secondMigrator);
-        if (secondMigratorPreHLG < amount) {
-            // Transfer enough HLG from deployer to secondMigrator
-            vm.startPrank(deployer);
-            IERC20(SEP_HLG).transfer(secondMigrator, amount - secondMigratorPreHLG);
-            vm.stopPrank();
+        // Ensure bob has enough HLG on chain if testing real balances
+        // Possibly transfer from alice -> bob if bob has none
+        vm.startPrank(alice);
+        uint256 aliceBalance = IERC20(SEP_HLG).balanceOf(alice);
+        if (aliceBalance < amount * 2) {
+            revert("Alice does not have enough HLG to fund Bob in fork. Adjust test or addresses accordingly.");
         }
+        IERC20(SEP_HLG).transfer(bob, amount);
+        vm.stopPrank();
 
-        // Ensure secondMigrator has the required amount
-        assertEq(IERC20(SEP_HLG).balanceOf(secondMigrator), amount, "Second migrator should have enough HLG");
-
-        // 2) Deployer migrates
-        vm.startPrank(deployer);
+        // 1) Alice migrates
+        vm.startPrank(alice);
         IERC20(SEP_HLG).approve(address(migration), amount);
-        uint256 preDeployerHLG = IERC20(SEP_HLG).balanceOf(deployer);
-        uint256 preDeployerGAINS = gains.balanceOf(deployer);
+        uint256 preAliceHLG = IERC20(SEP_HLG).balanceOf(alice);
+        uint256 preAliceGAINS = gains.balanceOf(alice);
         migration.migrate(amount);
-
-        assertEq(IERC20(SEP_HLG).balanceOf(deployer), preDeployerHLG - amount, "Deployer HLG balance mismatch");
-        assertEq(gains.balanceOf(deployer), preDeployerGAINS + amount, "Deployer GAINS balance mismatch");
+        assertEq(IERC20(SEP_HLG).balanceOf(alice), preAliceHLG - amount);
+        assertEq(gains.balanceOf(alice), preAliceGAINS + amount);
         vm.stopPrank();
 
-        // 3) secondMigrator migrates
-        vm.startPrank(secondMigrator);
-        uint256 preSecondHLG = IERC20(SEP_HLG).balanceOf(secondMigrator);
-        uint256 preSecondGAINS = gains.balanceOf(secondMigrator);
-
+        // 2) Bob migrates
+        vm.startPrank(bob);
         IERC20(SEP_HLG).approve(address(migration), amount);
+        uint256 preBobHLG = IERC20(SEP_HLG).balanceOf(bob);
+        uint256 preBobGAINS = gains.balanceOf(bob);
         migration.migrate(amount);
-
-        assertEq(
-            IERC20(SEP_HLG).balanceOf(secondMigrator),
-            preSecondHLG - amount,
-            "Second migrator HLG balance mismatch"
-        );
-        assertEq(gains.balanceOf(secondMigrator), preSecondGAINS + amount, "Second migrator GAINS balance mismatch");
+        assertEq(IERC20(SEP_HLG).balanceOf(bob), preBobHLG - amount);
+        assertEq(gains.balanceOf(bob), preBobGAINS + amount);
         vm.stopPrank();
     }
 
     /**
-     * @notice Tests migrating the full balance of the user.
-     *         We check that the user’s HLG goes to zero and they receive the same amount in GAINS.
+     * @notice Test contract state changes during migration.
      */
-    function test_ForkMigrateHLGToGAINS_FullBalance() external {
-        vm.startPrank(deployer);
+    function test_migrate_StateChecks() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        uint256 fullBalance = IERC20(SEP_HLG).balanceOf(deployer);
-        IERC20(SEP_HLG).approve(address(migration), fullBalance);
+        vm.startPrank(alice);
+        uint256 amount = 1000 ether;
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        uint256 preHLG = IERC20(SEP_HLG).balanceOf(alice);
+        uint256 preGAINS = gains.balanceOf(alice);
+        migration.migrate(amount);
+        vm.stopPrank();
+        assertEq(IERC20(SEP_HLG).balanceOf(alice), preHLG - amount, "HLG total supply should decrease");
+        assertEq(gains.balanceOf(alice), preGAINS + amount, "GAINS total supply should increase");
+    }
 
-        migration.migrate(fullBalance);
+    /**
+     * @notice Test migrating full balance.
+     */
+    function test_migrate_FullBalance() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        assertEq(IERC20(SEP_HLG).balanceOf(deployer), 0, "HLG balance should be zero after full migration");
-        assertEq(gains.balanceOf(deployer), fullBalance, "GAINS balance should match the full original HLG balance");
-
+        vm.startPrank(alice);
+        uint256 balance = IERC20(SEP_HLG).balanceOf(alice);
+        IERC20(SEP_HLG).approve(address(migration), balance);
+        migration.migrate(balance);
+        assertEq(IERC20(SEP_HLG).balanceOf(alice), 0, "HLG balance should be zero");
+        assertEq(gains.balanceOf(alice), balance, "GAINS balance should equal initial HLG balance");
         vm.stopPrank();
     }
 
     /**
-     * @notice Tests that after migrating some HLG, the approval/allowance is reduced accordingly.
+     * @notice Test approval state after migration.
      */
-    function test_ForkMigrateHLGToGAINS_ApprovalState() external {
-        vm.startPrank(deployer);
+    function test_migrate_ApprovalState() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        uint256 amountToApprove = 5 ether;
-        uint256 amountToMigrate = 3 ether;
-
-        IERC20(SEP_HLG).approve(address(migration), amountToApprove);
-
-        // Migrate less than the full allowance
-        migration.migrate(amountToMigrate);
-
-        uint256 remainingAllowance = IERC20(SEP_HLG).allowance(deployer, address(migration));
-        assertEq(remainingAllowance, amountToApprove - amountToMigrate, "Remaining allowance should match expected");
-
+        vm.startPrank(alice);
+        uint256 approveAmt = 2000 ether;
+        uint256 migrateAmt = 1000 ether;
+        IERC20(SEP_HLG).approve(address(migration), approveAmt);
+        migration.migrate(migrateAmt);
+        uint256 remaining = IERC20(SEP_HLG).allowance(alice, address(migration));
+        assertEq(remaining, approveAmt - migrateAmt, "Remaining allowance should be correct");
         vm.stopPrank();
     }
 
     /**
-     * @notice Ensures migration fails with partial approval (less than requested).
+     * @notice Test migration fails with insufficient approval.
      */
-    function test_ForkMigrateHLGToGAINS_RevertWithPartialApproval() external {
-        vm.startPrank(deployer);
+    function test_migrate_RevertWithPartialApproval() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        uint256 amountToApprove = 3 ether;
-        uint256 amountToMigrate = 4 ether; // More than approved
-
-        IERC20(SEP_HLG).approve(address(migration), amountToApprove);
-
+        vm.startPrank(alice);
+        uint256 amount = 1000 ether;
+        uint256 partialApprove = 999 ether;
+        IERC20(SEP_HLG).approve(address(migration), partialApprove);
         vm.expectRevert("ERC20: amount exceeds allowance");
-        migration.migrate(amountToMigrate);
-
+        migration.migrate(amount);
         vm.stopPrank();
     }
 
     /**
-     * @notice Tests sequence of events for multiple migrations, measuring gas to ensure consistency.
+     * @notice Test that migration emits an event.
      */
-    function test_ForkMigrateHLGToGAINS_GasConsistency() external {
-        vm.startPrank(deployer);
+    function test_migrate_EventSequence() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        uint256 amount = 1 ether;
-        IERC20(SEP_HLG).approve(address(migration), amount * 3);
-
-        // First migration (warm up storage)
+        vm.startPrank(alice);
+        uint256 amount = 1000 ether;
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        vm.expectEmit(true, true, false, true);
+        emit MigrateHLGToGAINS.MigratedHLGToGAINS(alice, amount);
         migration.migrate(amount);
+        vm.stopPrank();
+    }
 
-        // Second migration (measure gas)
+    /**
+     * @notice Test that migration has consistent gas usage.
+     */
+    function test_migrate_GasConsistency() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
+
+        vm.startPrank(alice);
+        uint256 amount = 1000 ether;
+        IERC20(SEP_HLG).approve(address(migration), amount * 3);
+        // Warm-up
+        migration.migrate(amount);
         uint256 gasBefore = gasleft();
         migration.migrate(amount);
         uint256 gasUsed1 = gasBefore - gasleft();
-
-        // Third migration (measure gas)
         gasBefore = gasleft();
         migration.migrate(amount);
         uint256 gasUsed2 = gasBefore - gasleft();
-
-        // Very rough check: we expect them to be in the same ballpark
-        // Example: 20% difference allowed
-        uint256 lowerBound = (gasUsed1 * 80) / 100; // -20%
-        uint256 upperBound = (gasUsed1 * 120) / 100; // +20%
-        assertTrue(gasUsed2 >= lowerBound && gasUsed2 <= upperBound, "Gas usage not within expected tolerance");
-
+        assertApproxEqRel(gasUsed1, gasUsed2, 0.1e18); // 10% tolerance
         vm.stopPrank();
     }
 
     /**
-     * @notice Attempts to verify total supply changes if HLG truly burns supply and GAINS truly mints supply.
-     *         For a real fork, HLG might not reduce total supply in the way a mock does. Adjust accordingly.
+     * @notice Test that migration works for a happy path.
      */
-    function test_ForkMigrateHLGToGAINS_TotalSupplyChecks() external {
-        vm.startPrank(deployer);
+    function test_migrate_HappyPath() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        // If the real HLG on Sepolia does not implement a standard burn, this may not hold.
-        // Attempt anyway for completeness.
-        try IERC20(SEP_HLG).totalSupply() returns (uint256 preHLGSupply) {
-            uint256 preGAINS = gains.totalSupply();
-            uint256 amount = 1 ether;
+        vm.startPrank(alice);
+        uint256 preHLG = IERC20(SEP_HLG).balanceOf(alice);
+        uint256 preGAINS = gains.balanceOf(alice);
+        uint256 amount = 1000 ether;
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        migration.migrate(amount);
+        vm.stopPrank();
+        assertEq(IERC20(SEP_HLG).balanceOf(alice), preHLG - amount);
+        assertEq(gains.balanceOf(alice), preGAINS + amount);
+    }
 
-            IERC20(SEP_HLG).approve(address(migration), amount);
-            migration.migrate(amount);
+    /**
+     * @notice Test that migration reverts if the user has no approval.
+     */
+    function test_migrate_Revert_NoApproval() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-            uint256 postGAINS = gains.totalSupply();
-
-            // If HLG is truly burned, totalSupply might go down. If not, or if the token's totalSupply is static, it won't.
-            // We won't assert on HLG supply because real mainnet tokens often don't reduce total supply on burn proxies.
-            assertEq(postGAINS, preGAINS + amount, "GAINS totalSupply should increase by the migrated amount");
-        } catch {
-            // If calling totalSupply() reverts on the real contract, we simply skip that check.
-        }
-
+        vm.startPrank(alice);
+        vm.expectRevert("ERC20: amount exceeds allowance");
+        migration.migrate(1000 ether);
         vm.stopPrank();
     }
 
     /**
-     * @notice Ensures that setting the migration contract to zero address reverts.
+     * @notice Test that migration reverts if the user tries to migrate more HLG than they hold.
      */
-    function test_ForkSetMigrationContract_RevertIfZeroAddress() external {
-        // We already set it in setUp(). Let's deploy a new GAINS to test from scratch.
-        GAINS freshGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), address(this));
+    function test_migrate_Revert_InsufficientBalance() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
 
-        vm.startPrank(address(this));
+        vm.startPrank(alice);
+        uint256 userBal = IERC20(SEP_HLG).balanceOf(alice);
+        uint256 excessive = userBal + 1 ether;
+        IERC20(SEP_HLG).approve(address(migration), excessive);
+        vm.expectRevert("ERC20: amount exceeds balance");
+        migration.migrate(excessive);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that minting for migration reverts if not migration contract.
+     */
+    function test_mintForMigration_RevertIfNotMigrationContract() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
+
+        vm.startPrank(alice);
+        vm.expectRevert(GAINS.NotMigrationContract.selector);
+        gains.mintForMigration(alice, 1000 ether);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that setting migration contract reverts if not owner.
+     */
+    function test_setMigrationContract_RevertIfNotOwner() public {
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, alice));
+        gains.setMigrationContract(address(0xDEAD));
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that migration emits an event.
+     */
+    function test_migrate_EventEmission() public {
+        vm.prank(owner);
+        migration.deactivateAllowlist();
+
+        vm.startPrank(alice);
+        uint256 amount = 500 ether;
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        vm.expectEmit(true, true, false, true);
+        emit MigrateHLGToGAINS.MigratedHLGToGAINS(alice, amount);
+        migration.migrate(amount);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that setting migration contract to zero address reverts.
+     *         This must run before the migration contract is set in setUp().
+     */
+    function test_setMigrationContract_RevertIfZeroAddress() public {
+        // Must happen before setMigrationContract is called,
+        // but we already set it in setUp(). So we do a fresh GAINS for demonstration.
+        GAINS freshGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), owner);
+        vm.prank(owner);
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         freshGains.setMigrationContract(address(0));
-        vm.stopPrank();
     }
 
     /**
-     * @notice Tests that MigrationContractSet is emitted when setting the migration contract.
-     *         We must deploy a fresh GAINS again to see this from zero to new address.
+     * @notice Test that setting migration contract emits an event.
      */
-    function test_ForkSetMigrationContract_EmitsEvent() external {
-        GAINS freshGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), address(this));
-
-        vm.startPrank(address(this));
-
+    function test_setMigrationContract_EmitsEvent() public {
+        // Again, use a fresh GAINS so the migration contract is not yet set
+        GAINS freshGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), owner);
+        vm.prank(owner);
         vm.expectEmit(true, true, false, true);
-        emit MigrationContractSet(address(migration));
+        emit GAINS.MigrationContractSet(address(migration));
         freshGains.setMigrationContract(address(migration));
-
-        vm.stopPrank();
     }
 
     /**
-     * @notice Tests that once the migration contract is set, it cannot be changed again.
+     * @notice Test that setting migration contract a second time fails.
      */
-    function test_ForkSetMigrationContract_RevertIfAlreadySet() external {
-        // Gains contract in setUp() is already set to migration
-        vm.startPrank(address(this));
-
-        // Try to set a second time
+    function test_setMigrationContract_RevertIfAlreadySet() public {
+        vm.prank(owner);
         vm.expectRevert(abi.encodeWithSignature("MigrationContractAlreadySet()"));
         gains.setMigrationContract(address(0xDEAD));
-
-        vm.stopPrank();
     }
 
     /**
-     * @notice Tests that migration reverts with BurnFromFailed when burnFrom fails,
-     *         using fresh local instances of MockHLG, GAINS, and MigrateHLGToGAINS.
+     * @notice Test that migration reverts with BurnFromFailed when burnFrom returns false.
      */
-    function test_ForkMigrateHLGToGAINS_Revert_BurnFromFailed() external {
-        // Deploy a fresh instance of MockHLG to simulate burn failure.
-        MockHLG localMockHLG = new MockHLG("Mock HLG", "HLG");
-        // Mint tokens to the deployer.
-        localMockHLG.mint(deployer, 10_000 ether);
+    function test_migrate_Revert_BurnFromFailed() public {
+        // Use a local MockHLG to force burn failure
+        MockHLG localHLG = new MockHLG("Mock HLG", "HLG");
+        localHLG.mint(alice, 1000 ether);
 
-        // Deploy a fresh GAINS instance (this one has no migration contract set yet).
-        GAINS localGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), address(this));
+        vm.startPrank(owner);
+        GAINS freshGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), owner);
+        MigrateHLGToGAINS localMigration = new MigrateHLGToGAINS(address(localHLG), address(freshGains));
+        freshGains.setMigrationContract(address(localMigration));
 
-        // Deploy a new migration contract using the local MockHLG and local GAINS.
-        MigrateHLGToGAINS localMigration = new MigrateHLGToGAINS(address(localMockHLG), address(localGains));
-        // Set the migration contract in the fresh GAINS instance.
-        localGains.setMigrationContract(address(localMigration));
+        // Add Alice to the allowlist
+        localMigration.addToAllowlist(alice);
+        vm.stopPrank();
 
-        vm.startPrank(deployer);
-        // Approve the migration contract to spend tokens.
-        localMockHLG.approve(address(localMigration), 1000 ether);
-        // Force burnFrom to return false.
-        localMockHLG.setShouldBurnSucceed(false);
+        vm.startPrank(alice);
+        // **Fix: Approve sufficient allowance before setting burn failure**
+        localHLG.approve(address(localMigration), 1000 ether);
 
-        // Expect the migration to revert with the custom error.
+        // **Set burn failure AFTER approval**
+        localHLG.setShouldBurnSucceed(false);
+
         vm.expectRevert(MigrateHLGToGAINS.BurnFromFailed.selector);
         localMigration.migrate(1000 ether);
         vm.stopPrank();
 
-        // Reset the flag so other tests remain unaffected
-        localMockHLG.setShouldBurnSucceed(true);
+        // Reset flag for other tests
+        localHLG.setShouldBurnSucceed(true);
+    }
+
+    // ------------------------------------------------
+    // Pause Functionality Tests
+    // ------------------------------------------------
+    /**
+     * @notice Test that when the contract is paused, migration is prevented.
+     */
+    function test_pause_PreventsMigration() public {
+        vm.prank(owner);
+        migration.pause();
+        vm.startPrank(alice);
+        IERC20(SEP_HLG).approve(address(migration), 1000 ether);
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        migration.migrate(1000 ether);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that unpausing the contract allows migration.
+     */
+    function test_unpause_AllowsMigration() public {
+        vm.startPrank(owner);
+        migration.pause();
+        migration.deactivateAllowlist();
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        IERC20(SEP_HLG).approve(address(migration), 1000 ether);
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        migration.migrate(1000 ether);
+        vm.stopPrank();
+        vm.prank(owner);
+        migration.unpause();
+        vm.startPrank(alice);
+        migration.migrate(1000 ether);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that non-owner cannot pause or unpause the contract.
+     */
+    function test_pause_AccessControl() public {
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, alice));
+        migration.pause();
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, alice));
+        migration.unpause();
+    }
+
+    // ------------------------------------------------
+    // Allowlist Functionality Tests (allowlistActive remains true)
+    // ------------------------------------------------
+    /**
+     * @notice Test that migration reverts for non-allowlisted users.
+     */
+    function test_allowlist_RevertForNonAllowlisted() public {
+        uint256 amount = 500 ether;
+        // Do not disable allowlist so it remains active.
+        vm.startPrank(alice);
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        vm.expectRevert(MigrateHLGToGAINS.NotOnAllowlist.selector);
+        migration.migrate(amount);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Test that migration is allowed for allowlisted users.
+     */
+    function test_allowlist_AllowsMigrationForAllowlisted() public {
+        uint256 amount = 500 ether;
+        vm.prank(owner);
+        migration.addToAllowlist(alice);
+        vm.startPrank(alice);
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        migration.migrate(amount);
+        vm.stopPrank();
+        assertEq(gains.balanceOf(alice), amount);
+    }
+
+    /**
+     * @notice Test that batch adding to the allowlist works.
+     */
+    function test_allowlist_BatchAdd() public {
+        address[] memory accounts = new address[](2);
+        accounts[0] = alice;
+        accounts[1] = bob;
+        vm.prank(owner);
+        migration.batchAddToAllowlist(accounts);
+        assertTrue(migration.allowlist(alice), "Alice should be in the allowlist");
+        assertTrue(migration.allowlist(bob), "Bob should be in the allowlist");
+    }
+
+    /**
+     * @notice Test that removing from the allowlist works.
+     */
+    function test_allowlist_Remove() public {
+        vm.prank(owner);
+        migration.addToAllowlist(alice);
+        assertTrue(migration.allowlist(alice), "Alice should be in the allowlist");
+        vm.prank(owner);
+        migration.removeFromAllowlist(alice);
+        assertFalse(migration.allowlist(alice), "Alice should not be in the allowlist");
+    }
+
+    /**
+     * @notice Test that the allowlist status change emits an event.
+     */
+    function test_allowlist_AllowlistStatusChangeEmitsEvent() public {
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit MigrateHLGToGAINS.AllowlistDeactivated();
+        migration.deactivateAllowlist();
+    }
+
+    /**
+     * @notice Test that when the allowlist is inactive, migration is allowed for all users.
+     */
+    function test_allowlist_InactiveAllowsMigration() public {
+        uint256 amount = 500 ether;
+        vm.prank(owner);
+        migration.deactivateAllowlist();
+        vm.startPrank(alice);
+        IERC20(SEP_HLG).approve(address(migration), amount);
+        migration.migrate(amount);
+        vm.stopPrank();
+        assertEq(gains.balanceOf(alice), amount);
+    }
+
+    /**
+     * @notice Test that adding a zero address to the allowlist reverts.
+     */
+    function test_allowlist_RevertOnZeroAddressAddition() public {
+        vm.prank(owner);
+        vm.expectRevert(MigrateHLGToGAINS.ZeroAddressProvided.selector);
+        migration.addToAllowlist(address(0));
+    }
+
+    /**
+     * @notice Test that adding a zero address to the allowlist reverts.
+     */
+    function test_allowlist_RevertOnZeroAddressBatchAddition() public {
+        address[] memory accounts = new address[](2);
+        accounts[0] = alice;
+        accounts[1] = address(0);
+        vm.prank(owner);
+        vm.expectRevert(MigrateHLGToGAINS.ZeroAddressProvided.selector);
+        migration.batchAddToAllowlist(accounts);
     }
 }
