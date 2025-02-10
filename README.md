@@ -174,6 +174,35 @@ forge script script/ManageAllowlist.s.sol:ManageAllowlist \
   --broadcast
 ```
 
+#### TransferOwnership
+
+Transfers ownership of the GAINS contract to a new address (e.g., a Gnosis Safe).
+
+1. Configure environment variables in `.env`:
+
+```ini
+GAINS_ADDRESS=0x...  # The deployed GAINS contract address
+GNOSIS_SAFE=0x...    # Your Gnosis Safe address
+PRIVATE_KEY=0x...    # Private key of the current owner
+RPC_URL=https://...  # Your RPC endpoint
+```
+
+2. Run the script:
+
+```bash
+# Dry run (simulation)
+forge script script/TransferOwnership.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+
+# Actually execute the transfer
+forge script script/TransferOwnership.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+```
+
+You can also load the environment variables directly:
+
+```bash
+source .env && forge script script/TransferOwnership.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+```
+
 ## Usage
 
 ### Migrating HLG -> GAINS
