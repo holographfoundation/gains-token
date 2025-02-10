@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 // OApp / OFT imports
-import { IOAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
-import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import { IOFT, SendParam, OFTReceipt } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
-import { MessagingFee, MessagingReceipt } from "@layerzerolabs/oft-evm/contracts/OFTCore.sol";
-import { OFTMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
-import { OFTComposeMsgCodec } from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
+import {IOAppOptionsType3} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
+import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import {IOFT, SendParam, OFTReceipt} from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import {MessagingFee, MessagingReceipt} from "@layerzerolabs/oft-evm/contracts/OFTCore.sol";
+import {OFTMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTMsgCodec.sol";
+import {OFTComposeMsgCodec} from "@layerzerolabs/oft-evm/contracts/libs/OFTComposeMsgCodec.sol";
 
 // OZ imports
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 // Forge imports
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 
 // Test Helper imports
-import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
 // GAINS import
-import { GAINSTestExtension } from "./GAINSTestExtension.sol";
+import {GAINSTestExtension} from "./GAINSTestExtension.sol";
 
 // Mock imports
-import { OFTComposerMock } from "../mocks/OFTComposerMock.sol";
+import {OFTComposerMock} from "../mocks/OFTComposerMock.sol";
 
 /**
  * @title GAINSTest
@@ -133,7 +133,7 @@ contract GAINSTest is TestHelperOz5 {
 
         // userA sends tokens from chain A to chain B
         vm.prank(userA);
-        aGAINS.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+        aGAINS.send{value: fee.nativeFee}(sendParam, fee, payable(address(this)));
 
         // verify cross-chain packets
         verifyPackets(bEid, addressToBytes32(address(bGAINS)));
@@ -175,7 +175,7 @@ contract GAINSTest is TestHelperOz5 {
         assertEq(bGAINS.balanceOf(address(composer)), 0);
 
         vm.prank(userA);
-        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = aGAINS.send{ value: fee.nativeFee }(
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = aGAINS.send{value: fee.nativeFee}(
             sendParam,
             fee,
             payable(address(this))

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import "../../src/interfaces/HolographERC20Interface.sol";
 import "../../src/interfaces/ERC20Receiver.sol";

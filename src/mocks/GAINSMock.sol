@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
-import { GAINS } from "../GAINS.sol";
+import {GAINS} from "../GAINS.sol";
 
 // @dev WARNING: This is for testing purposes only
 contract GAINSMock is GAINS {

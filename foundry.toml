@@ -1,6 +1,6 @@
 [profile.default]
-solc = "0.8.26"
-solc_version = "0.8.26"
+solc = "0.8.28"
+solc_version = "0.8.28"
 src = 'src'
 optimizer_runs = 44444444
 via_ir = true
@@ -13,6 +13,7 @@ bytecode_hash = "none"
 out = 'out'
 test = 'test/foundry'
 cache_path = 'cache/foundry'
+auto_detect_solc = true
 
 libs = [
     # We provide a set of useful contract utilities
