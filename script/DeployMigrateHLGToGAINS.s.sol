@@ -75,7 +75,7 @@ contract DeployMigrateHLGToGAINS is Script {
         // ---------------------------
         // Deploy/Re-use MigrateHLGToGAINS
         // ---------------------------
-        bytes memory migrationConstructorArgs = abi.encode(HLG_ADDRESS, gainsPredicted);
+        bytes memory migrationConstructorArgs = abi.encode(HLG_ADDRESS, gainsPredicted, GAINS_OWNER);
         bytes memory migrationInitCode = abi.encodePacked(
             type(MigrateHLGToGAINS).creationCode,
             migrationConstructorArgs
@@ -86,7 +86,7 @@ contract DeployMigrateHLGToGAINS is Script {
         MigrateHLGToGAINS migration;
         if (!hasCode(migrationPredicted)) {
             console.log("Deterministically deploying MigrateHLGToGAINS at:", migrationPredicted);
-            migration = new MigrateHLGToGAINS{salt: SALT_MIGRATION}(HLG_ADDRESS, gainsPredicted);
+            migration = new MigrateHLGToGAINS{salt: SALT_MIGRATION}(HLG_ADDRESS, gainsPredicted, GAINS_OWNER);
             console.log("MigrateHLGToGAINS deployed at:", address(migration));
             require(address(migration) == migrationPredicted, "Migration address mismatch");
         } else {

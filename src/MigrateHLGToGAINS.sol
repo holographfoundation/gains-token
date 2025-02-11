@@ -59,8 +59,13 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
     /**
      * @param _hlg Address of the deployed HLG (HolographUtilityToken) contract proxy.
      * @param _gains Address of the deployed GAINS (OFT) contract.
+     * @param _owner The address that should be set as the owner.
+     *
+     * @dev Pass _owner explicitly so that the intended deployer (not the create2 factory)
+     *      becomes the owner. This fixes the issue where msg.sender (i.e. the factory)
+     *      was incorrectly assigned as owner.
      */
-    constructor(address _hlg, address _gains) Ownable(msg.sender) {
+    constructor(address _hlg, address _gains, address _owner) Ownable(_owner) {
         if (_hlg == address(0) || _gains == address(0)) {
             revert ZeroAddressInConstructor();
         }
@@ -107,6 +112,9 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
         emit RemovedFromAllowlist(account);
     }
 
+    /**
+     * @notice Deactivates the entire allowlist.
+     */
     function deactivateAllowlist() external onlyOwner {
         allowlistActive = false;
         emit AllowlistDeactivated();
