@@ -45,6 +45,13 @@ contract SetPeersScript is Script {
     function initializeConfig() internal {
         bool mainnet = vm.envBool("MAINNET"); // Defaults to false if not set
 
+        // TODO: Ensure GAINS_CONTRACT is set in .env for the correct deployment
+        if (vm.envAddress("GAINS_CONTRACT") == address(0)) {
+            revert("GAINS_CONTRACT is not set in .env");
+        }
+
+        GAINS_CONTRACT = vm.envAddress("GAINS_CONTRACT");
+
         if (mainnet) {
             // Mainnet configuration
             ETHEREUM_EID = ETHEREUM_MAINNET_EID;
@@ -52,9 +59,6 @@ contract SetPeersScript is Script {
             BASE_EID = BASE_MAINNET_EID;
             BSC_EID = BSC_MAINNET_EID;
             ARBITRUM_EID = ARBITRUM_MAINNET_EID;
-
-            // TODO: Add mainnet addresses once deployed
-            GAINS_CONTRACT = 0x0000000000000000000000000000000000000000;
         } else {
             // Testnet configuration
             ETHEREUM_EID = ETHEREUM_SEPOLIA_EID;
@@ -62,9 +66,6 @@ contract SetPeersScript is Script {
             BASE_EID = BASE_SEPOLIA_EID;
             BSC_EID = BSC_TESTNET_EID;
             ARBITRUM_EID = ARBITRUM_TESTNET_EID;
-
-            // TODO: Update with final testnet addresses once deployed
-            GAINS_CONTRACT = 0x2809443F5Ec9D648e9127fE7fFE7EA28C402d3b8;
         }
     }
 
