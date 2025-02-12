@@ -62,7 +62,7 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
 
         // Deploy MigrateHLGToGAINS referencing SEP_HLG + GAINS
         vm.prank(owner);
-        migration = new MigrateHLGToGAINS(SEP_HLG, address(gains));
+        migration = new MigrateHLGToGAINS(SEP_HLG, address(gains), owner);
         vm.label(address(migration), "MigrateHLGToGAINS");
 
         // Set MigrateHLGToGAINS as the migration contract in GAINS
@@ -410,7 +410,7 @@ contract MigrateHLGToGAINSFork is TestHelperOz5 {
 
         vm.startPrank(owner);
         GAINS freshGains = new GAINS("GAINS", "GAINS", address(endpoints[1]), owner);
-        MigrateHLGToGAINS localMigration = new MigrateHLGToGAINS(address(localHLG), address(freshGains));
+        MigrateHLGToGAINS localMigration = new MigrateHLGToGAINS(address(localHLG), address(freshGains), owner);
         freshGains.setMigrationContract(address(localMigration));
 
         // Add Alice to the allowlist

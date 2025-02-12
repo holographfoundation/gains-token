@@ -7,15 +7,11 @@ import "../src/MigrateHLGToGAINS.sol";
 
 /**
  * @title DeployMigrateHLGToGAINS
- * @notice Uses Foundry’s built-in deterministic deployer for CREATE2 at 0x4e59b44847b379578588920cA78FbF26c0B4956C.
+ * @notice Uses Foundry's built-in deterministic deployer for CREATE2 at 0x4e59b44847b379578588920cA78FbF26c0B4956C.
  */
 contract DeployMigrateHLGToGAINS is Script {
     // The Foundry deterministic deployer address (same across all EVM chains)
     address internal constant FOUNDRY_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-
-    // CREATE2 salts
-    bytes32 public constant SALT_GAINS = keccak256("GAINS_V1");
-    bytes32 public constant SALT_MIGRATION = keccak256("MIGRATION_V1");
 
     /**
      * @notice Check if an address already has deployed code.
@@ -39,6 +35,12 @@ contract DeployMigrateHLGToGAINS is Script {
 
     /**
      * @notice Main deployment entrypoint. Deploys or reuses contracts deterministically.
+     *
+     * Requirements:
+     * - Either both GAINS and MigrateHLGToGAINS must be deployed (for the given version) or neither should be.
+     *   Otherwise the script will revert.
+     *
+     * Use the DEPLOY_VERSION environment variable to force a new deployment version.
      */
     function run() external {
         string memory GAINS_NAME = "GAINS";
@@ -49,48 +51,56 @@ contract DeployMigrateHLGToGAINS is Script {
         address GAINS_OWNER = vm.envAddress("GAINS_OWNER");
         address HLG_ADDRESS = vm.envAddress("HLG_ADDRESS");
 
-        // Load deployer's private key
+        // Use DEPLOY_VERSION to version the salts (default "V1")
+        string memory version = vm.envOr("DEPLOY_VERSION", string("V1"));
+        bytes32 SALT_GAINS = keccak256(abi.encodePacked("GAINS_", version));
+        bytes32 SALT_MIGRATION = keccak256(abi.encodePacked("MIGRATION_", version));
+
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         // ---------------------------
-        // Deploy/Re-use GAINS
+        // Compute GAINS deployment details
         // ---------------------------
         bytes memory gainsConstructorArgs = abi.encode(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
         bytes memory gainsInitCode = abi.encodePacked(type(GAINS).creationCode, gainsConstructorArgs);
-
         address gainsPredicted = computeFoundryCreate2Address(SALT_GAINS, gainsInitCode);
 
-        GAINS gains;
-        if (!hasCode(gainsPredicted)) {
-            console.log("Deterministically deploying GAINS at:", gainsPredicted);
-            gains = new GAINS{salt: SALT_GAINS}(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
-            console.log("GAINS deployed at:", address(gains));
-            require(address(gains) == gainsPredicted, "GAINS address mismatch");
-        } else {
-            console.log("GAINS already at:", gainsPredicted);
-            gains = GAINS(gainsPredicted);
-        }
-
         // ---------------------------
-        // Deploy/Re-use MigrateHLGToGAINS
+        // Compute MigrateHLGToGAINS deployment details
         // ---------------------------
         bytes memory migrationConstructorArgs = abi.encode(HLG_ADDRESS, gainsPredicted, GAINS_OWNER);
         bytes memory migrationInitCode = abi.encodePacked(
             type(MigrateHLGToGAINS).creationCode,
             migrationConstructorArgs
         );
-
         address migrationPredicted = computeFoundryCreate2Address(SALT_MIGRATION, migrationInitCode);
 
+        // Enforce atomic deployment: either both contracts exist or neither does.
+        bool gainsExists = hasCode(gainsPredicted);
+        bool migrationExists = hasCode(migrationPredicted);
+        if (gainsExists != migrationExists) {
+            revert("Both GAINS and MigrateHLGToGAINS must be deployed together for a given version");
+        }
+
+        GAINS gains;
         MigrateHLGToGAINS migration;
-        if (!hasCode(migrationPredicted)) {
+        if (!gainsExists) {
+            // Deploy both contracts.
+            console.log("Deterministically deploying GAINS at:", gainsPredicted);
+            gains = new GAINS{salt: SALT_GAINS}(GAINS_NAME, GAINS_SYMBOL, LZ_ENDPOINT, GAINS_OWNER);
+            console.log("GAINS deployed at:", address(gains));
+            require(address(gains) == gainsPredicted, "GAINS address mismatch");
+
             console.log("Deterministically deploying MigrateHLGToGAINS at:", migrationPredicted);
             migration = new MigrateHLGToGAINS{salt: SALT_MIGRATION}(HLG_ADDRESS, gainsPredicted, GAINS_OWNER);
             console.log("MigrateHLGToGAINS deployed at:", address(migration));
             require(address(migration) == migrationPredicted, "Migration address mismatch");
         } else {
-            console.log("MigrateHLGToGAINS already at:", migrationPredicted);
+            // Both contracts already exist; reuse them.
+            console.log("Using existing GAINS at:", gainsPredicted);
+            gains = GAINS(gainsPredicted);
+            console.log("Using existing MigrateHLGToGAINS at:", migrationPredicted);
             migration = MigrateHLGToGAINS(migrationPredicted);
         }
 
@@ -110,6 +120,7 @@ contract DeployMigrateHLGToGAINS is Script {
         console.log("\nFinal addresses:");
         console.log("GAINS:", address(gains));
         console.log("MigrateHLGToGAINS:", address(migration));
+        console.log("Version deployed:", version);
         console.log("Done. If run with --verify, Foundry will attempt to auto-verify newly deployed contracts only.");
     }
 }
