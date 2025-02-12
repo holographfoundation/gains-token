@@ -7,6 +7,12 @@ YELLOW := \033[0;33m
 RED := \033[0;31m
 NC := \033[0m
 
+# Load environment variables from .env file
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
 # ---------------------------------------------------------------------------- #
 #                                    Targets                                   #
 # ---------------------------------------------------------------------------- #
@@ -28,6 +34,12 @@ build:
 	forge build
 	@echo "\n$(GREEN)✅ Build completed successfully!$(NC)\n"
 
+
+abi:
+	@echo "\n$(YELLOW)🔨 Generating ABIs...$(NC)\n"
+	./script/generate-abis.sh
+	@echo "\n$(GREEN)✅ ABI generation completed successfully!$(NC)\n"
+
 ## build: Build the contracts
 clean:
 	@echo "$(YELLOW)🔨 Cleaning contracts...$(NC)"
@@ -43,7 +55,7 @@ test: build
 deploy:
 	@echo "$(YELLOW)🚀 Deploying MigrateHLGToGAINS + GAINS via CREATE2...$(NC)"
 	if [ -z "$(RPC_URL)" ]; then \
-		echo "$(RED)❌ RPC_URL is not set. Please set it in your environment or .env.$(NC)"; \
+		echo "$(RED)❌ RPC_URL is not set. Please set it in your .env file.$(NC)"; \
 		exit 1; \
 	else \
 		forge script script/DeployMigrateHLGToGAINS.s.sol:DeployMigrateHLGToGAINS \

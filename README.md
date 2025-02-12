@@ -1,8 +1,6 @@
 # GAINS & MigrateHLGToGAINS
 
-![GAINS Logo](./gm.png)
-
-This repository contains the **GAINS** omnichain token (built on [LayerZero's OFT standard](https://docs.layerzero.network/v2/developers/evm/oft/quickstart)) and a **MigrateHLGToGAINS** contract that facilitates a burn-and-mint migration from HLG (HolographUtilityToken) to GAINS on any chain where GAINS is deployed.
+This repository contains the **GAINS** omnichain token (built on [LayerZero's OFT standard](https://docs.layerzero.network/v2/developers/evm/oft/quickstart)) and the **MigrateHLGToGAINS** contract that facilitates a burn-and-mint migration from HLG (HolographUtilityToken) to GAINS on any chain where GAINS is deployed.
 
 ## Overview
 
@@ -10,11 +8,11 @@ This repository contains the **GAINS** omnichain token (built on [LayerZero's OF
   An **Omnichain Fungible Token (OFT)** extending LayerZero's cross-chain token standard. GAINS tokens can be bridged between any supported LayerZero-enabled chain while maintaining a unified supply.
 
 - **MigrateHLGToGAINS**  
-  A migration contract that allows users to burn their HLG tokens and receive newly minted GAINS 1:1 on the same chain. The user first approves the migration contract to spend HLG, then calls `migrate(amount)`, which:
+  A migration contract that lets users burn their HLG tokens and receive newly minted GAINS 1:1 on the same chain. The user first approves the migration contract to spend HLG, then calls `migrate(amount)`, which:
   1. Burns the specified amount of HLG from the user's wallet.
   2. Mints an equivalent amount of GAINS tokens to the user's wallet.
 
-Together, these contracts enable a smooth transition from HLG to GAINS, ensuring users maintain the same overall token holdings during the switch.
+Together, these contracts ensure a smooth transition from HLG to GAINS, preserving overall token holdings during the migration.
 
 ## Contracts
 
@@ -23,90 +21,92 @@ Together, these contracts enable a smooth transition from HLG to GAINS, ensuring
 - **Location**: [`src/GAINS.sol`](./src/GAINS.sol)
 - **Key Points**:
   - Inherits from [LayerZero's OFT](https://github.com/LayerZero-Labs/LayerZero-v2/tree/main/packages/layerzero-v2/evm/oapp/contracts/oft).
-  - Tracks a single global supply across all chains via `burn` and `mint` operations on each network.
-  - Ownership is managed via OpenZeppelin's `Ownable`, with a constructor that sets an initial `_delegate` as the contract owner.
-  - Integrates a `migrationContract` address which is allowed to mint new GAINS tokens for the HLG->GAINS migration process.
+  - Maintains a unified global supply across all chains.
+  - Uses OpenZeppelin's `Ownable` for ownership management; the owner is set via the constructor.
+  - Contains a `migrationContract` address (settable only once) that is authorized to mint GAINS tokens during migration.
 
 ### MigrateHLGToGAINS
 
 - **Location**: [`src/MigrateHLGToGAINS.sol`](./src/MigrateHLGToGAINS.sol)
 - **Key Points**:
-  - Accepts approved HLG tokens from users via `burnFrom`.
-  - Issues newly minted GAINS tokens to the user 1:1 by calling `mintForMigration` on GAINS.
-  - Restricted so only the GAINS owner can designate this contract as the `migrationContract`.
+  - Accepts approved HLG tokens via `burnFrom`.
+  - Calls GAINS's `mintForMigration` to mint new tokens 1:1.
+  - Ownership is set via a constructor parameter (to avoid accidental ownership by a CREATE2 factory).
+  - Provides functions to manage an allowlist (including a batch-add operation).
 
 ## Repository Structure
 
 ```
 .
 ├── src
-│   ├── GAINS.sol                    # GAINS Omnichain Fungible Token
-│   ├── MigrateHLGToGAINS.sol       # HLG -> GAINS migration contract
-│   └── interfaces                   # Interface for HolographERC20 (HLG)
+│   ├── GAINS.sol                     # GAINS Omnichain Fungible Token
+│   ├── MigrateHLGToGAINS.sol        # HLG -> GAINS migration contract
+│   └── interfaces                    # Interfaces (e.g., for HolographERC20)
 ├── script
-│   ├── DeployMigrateHLGToGAINS.s.sol  # Foundry script for deterministic deployment
-│   ├── BridgeGAINS.s.sol              # Example bridging script for sending GAINS cross-chain
-│   ├── SetPeersScript.s.sol           # Script to set cross-chain peer relationships
+│   ├── DeployMigrateHLGToGAINS.s.sol # Deterministic deployment via CREATE2 with versioning
+│   ├── BridgeGAINS.s.sol             # Example bridging script for GAINS tokens
+│   ├── SetPeers.s.sol          # Script to configure cross-chain peers
+│   ├── ManageAllowlist.s.sol         # Script to manage the migration allowlist (uses batchAddToAllowlist)
+│   ├── TransferOwnership.s.sol       # Script to transfer ownership to a new address (e.g., a Gnosis Safe)
 │   └── ...
 ├── tests
-│   └── ...                         # Unit and integration tests for GAINS & MigrateHLGToGAINS
-├── forge.toml                      # Build & test configuration
-├── .env.example                    # Environment variables for private keys, RPCs, etc.
-└── ...
+│   └── ...                          # Unit and integration tests for the contracts
+├── forge.toml                       # Foundry configuration
+├── .env.example                     # Environment variable configuration template
+└── README.md                        # This file
 ```
 
 ## Installation & Compilation
 
 1. **Clone the repository**:
 
-   ```bash
-   git clone https://github.com/YourOrg/GAINS.git
-   cd GAINS
-   ```
+```bash
+git clone https://github.com/YourOrg/GAINS.git
+cd GAINS
+```
 
 2. **Install dependencies**:
 
-   Foundry:
+Using Foundry and pnpm:
 
-   ```bash
-   pnpm install
-   forge install
-   ```
+```bash
+pnpm install
+forge install
+```
 
-3. **Configure environment**:
+3. **Configure environment variables**:
 
-   - Duplicate `.env.example` to `.env`.
-   - Populate with your private key(s) and any relevant RPC URLs:
+Copy .env.example to .env and fill in your private keys, RPC URLs, and other addresses:
 
-   ```ini
-   PRIVATE_KEY=0xabcd1234...
-   LZ_ENDPOINT=0x...
-   HLG_ADDRESS=0x...
-   GAINS_OWNER=0xYourOwnerAddress
-   ```
+```ini
+PRIVATE_KEY=0xabcd1234...
+LZ_ENDPOINT=0x...
+HLG_ADDRESS=0x...
+GAINS_OWNER=0xYourOwnerAddress
+GAINS_CONTRACT=0x...
+MIGRATION_CONTRACT=0x...
+GNOSIS_SAFE=0x...
+DEPLOY_VERSION=V1  # Update this (e.g., "V2") when deploying a new version
+```
 
 4. **Compile**:
 
-   Foundry:
-
-   ```bash
-   forge build
-   ```
+```bash
+forge build
+```
 
 ## Deployment
 
-### Foundry Scripts
+### DeployMigrateHLGToGAINS
 
-#### DeployMigrateHLGToGAINS
-
-Uses CREATE2 for deterministic addresses and ties GAINS to MigrateHLGToGAINS.
+This script uses CREATE2 for deterministic deployment with versioning. It enforces that either both GAINS and MigrateHLGToGAINS are deployed together for a given version or neither is. To deploy a new version, update the DEPLOY_VERSION variable (e.g., from V1 to V2).
 
 ```bash
 forge script script/DeployMigrateHLGToGAINS.s.sol:DeployMigrateHLGToGAINS \
   --rpc-url <RPC> --broadcast --verify -vvvv
 ```
 
-#### BridgeGAINSScript
+### BridgeGAINSScript
 
 Demonstrates bridging GAINS tokens cross-chain.
 
@@ -114,22 +114,21 @@ Demonstrates bridging GAINS tokens cross-chain.
 forge script script/BridgeGAINS.s.sol:BridgeGAINSScript --rpc-url <RPC> --broadcast -vvvv
 ```
 
-#### SetPeersScript
+### SetPeers
 
-Whitelists cross-chain peers so GAINS contracts trust each other on different endpoints.
+Configures cross-chain peer relationships so GAINS contracts trust each other across different chains.
 
 ```bash
-forge script script/SetPeersScript.s.sol:SetPeersScript --rpc-url <RPC> --broadcast -vvvv
+forge script script/SetPeers.s.sol:SetPeers --rpc-url <RPC> --broadcast -vvvv
 ```
 
-#### ManageAllowlist
+### ManageAllowlist
 
-Manages the allowlist in MigrateHLGToGAINS using addresses from a JSON file.
-You can add, remove, and toggle the allowlist.
+Manages the allowlist in the MigrateHLGToGAINS contract using a JSON file.
 
 Example JSON file allowlist.json:
 
-```
+```json
 {
   "allowlist": [
     "0x1111111111111111111111111111111111111111",
@@ -138,110 +137,82 @@ Example JSON file allowlist.json:
 }
 ```
 
-Add addresses from JSON:
+Add addresses:
 
 ```bash
 forge script script/ManageAllowlist.s.sol:ManageAllowlist \
   --sig "addAddressesFromJson(string,string)" "('./allowlist.json','allowlist')" \
-  --rpc-url <RPC> \
-  --broadcast
+  --rpc-url <RPC> --broadcast
 ```
 
-Remove addresses from JSON:
+Remove addresses:
 
 ```bash
 forge script script/ManageAllowlist.s.sol:ManageAllowlist \
   --sig "removeAddressesFromJson(string,string)" "('./allowlist.json','allowlist')" \
-  --rpc-url <RPC> \
-  --broadcast
+  --rpc-url <RPC> --broadcast
 ```
 
-Enable the allowlist:
+Disable allowlist (if needed):
 
 ```bash
 forge script script/ManageAllowlist.s.sol:ManageAllowlist \
-  --sig "setAllowlistActive(bool)" "true" \
-  --rpc-url <RPC> \
-  --broadcast
+  --sig "deactivateAllowlist()" \
+  --rpc-url <RPC> --broadcast
 ```
 
-Disable the allowlist:
+### TransferOwnership
+
+Transfers ownership of the GAINS and MigrateHLGToGAINS contracts to a new owner (e.g., a Gnosis Safe). Ensure your .env variables are set correctly.
 
 ```bash
-forge script script/ManageAllowlist.s.sol:ManageAllowlist \
-  --sig "setAllowlistActive(bool)" "false" \
-  --rpc-url <RPC> \
-  --broadcast
-```
-
-#### TransferOwnership
-
-Transfers ownership of the GAINS contract to a new address (e.g., a Gnosis Safe).
-
-1. Configure environment variables in `.env`:
-
-```ini
-GAINS_CONTRACT=0x...  # The deployed GAINS contract address
-GNOSIS_SAFE=0x...    # Your Gnosis Safe address
-PRIVATE_KEY=0x...    # Private key of the current owner
-RPC_URL=https://...  # Your RPC endpoint
-```
-
-2. Run the script:
-
-```bash
-# Dry run (simulation)
-forge script script/TransferOwnership.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-
-# Actually execute the transfer
-forge script script/TransferOwnership.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-```
-
-You can also load the environment variables directly:
-
-```bash
-source .env && forge script script/TransferOwnership.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+source .env && forge script script/TransferOwnership.s.sol:TransferOwnership \
+  --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
 ## Usage
 
 ### Migrating HLG -> GAINS
 
-1. Approve the MigrateHLGToGAINS contract to spend HLG:
+Approve the migration contract to spend HLG tokens:
 
 ```solidity
 HolographERC20Interface(hlgAddress).approve(migrationContract, amount);
 ```
 
-2. Call `migration.migrate(amount)` to burn HLG and receive GAINS 1:1:
+Migrate tokens by calling:
 
 ```solidity
-migration.migrate(1e18); // Example: Migrate 1 HLG
+migration.migrate(amount); // Mints GAINS 1:1 after burning HLG
 ```
 
 ### Bridging GAINS
 
-1. Approve GAINS for bridging (if needed).
-2. Call `gains.send(...)` with the desired SendParam to move tokens cross-chain.
+1. Approve GAINS for bridging (if required).
+2. Call gains.send(...) with the appropriate parameters to move tokens cross-chain.
 
 ### Cross-Chain Configuration
 
-On each chain, set setPeer to tell GAINS which contract to trust for bridging:
+Set peers on each chain so that GAINS contracts trust each other for cross-chain transfers:
 
 ```solidity
-GAINS(chainA).setPeer(chainBId, bytes32(address(GAINS(chainB))));
-GAINS(chainB).setPeer(chainAId, bytes32(address(GAINS(chainA))));
+GAINS(chainA).setPeer(chainBId, bytes32(uint256(uint160(address(GAINS(chainB))))));
+GAINS(chainB).setPeer(chainAId, bytes32(uint256(uint160(address(GAINS(chainA))))));
 ```
 
 ## Testing
 
-Foundry:
+Run tests with:
 
 ```bash
 forge test -vv
 ```
 
-Combined: Add commands in package.json to run both if needed.
+## Generate ABIs
+
+```
+./scripts/generate-abis.sh
+```
 
 ## License
 

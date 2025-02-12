@@ -61,7 +61,7 @@ contract MigrateHLGToGAINSTest is Test {
         // 4) Deploy MigrateHLGToGAINS referencing MockHLG + GAINS
         //    (deploy as owner so Ownable is set correctly)
         vm.prank(owner);
-        migration = new MigrateHLGToGAINS(address(hlg), address(gains));
+        migration = new MigrateHLGToGAINS(address(hlg), address(gains), owner);
         vm.label(address(migration), "MigrateHLGToGAINS");
 
         // 5) Mint MockHLG tokens to Alice and Bob for testing
