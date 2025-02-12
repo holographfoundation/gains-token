@@ -113,14 +113,6 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
     }
 
     /**
-     * @notice Deactivates the entire allowlist.
-     */
-    function deactivateAllowlist() external onlyOwner {
-        allowlistActive = false;
-        emit AllowlistDeactivated();
-    }
-
-    /**
      * @notice Batch-adds multiple accounts to the allowlist.
      * @param accounts The array of accounts to add.
      */
@@ -131,6 +123,26 @@ contract MigrateHLGToGAINS is Pausable, Ownable {
             allowlist[accounts[i]] = true;
             emit AddedToAllowlist(accounts[i]);
         }
+    }
+
+    /**
+     * @notice Batch-removes multiple accounts from the allowlist.
+     * @param accounts The array of accounts to remove.
+     */
+    function batchRemoveFromAllowlist(address[] calldata accounts) external onlyOwner {
+        uint256 len = accounts.length;
+        for (uint256 i; i < len; ++i) {
+            allowlist[accounts[i]] = false;
+            emit RemovedFromAllowlist(accounts[i]);
+        }
+    }
+
+    /**
+     * @notice Deactivates the entire allowlist.
+     */
+    function deactivateAllowlist() external onlyOwner {
+        allowlistActive = false;
+        emit AllowlistDeactivated();
     }
 
     /**

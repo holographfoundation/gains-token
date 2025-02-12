@@ -124,7 +124,7 @@ forge script script/SetPeersScript.s.sol:SetPeersScript --rpc-url <RPC> --broadc
 
 ### ManageAllowlist
 
-Manages the allowlist in the MigrateHLGToGAINS contract using a JSON file. The script now uses batchAddToAllowlist for efficiency.
+Manages the allowlist in the MigrateHLGToGAINS contract using a JSON file.
 
 Example JSON file allowlist.json:
 
@@ -207,8 +207,6 @@ Run tests with:
 ```bash
 forge test -vv
 ```
-
-You can also add test commands in your package.json if needed.
 
 ## License
 
