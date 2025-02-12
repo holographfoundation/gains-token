@@ -208,6 +208,12 @@ Run tests with:
 forge test -vv
 ```
 
+## Generate ABIs
+
+```
+./scripts/generate-abis.sh
+```
+
 ## License
 
 This project is licensed under the MIT License.
