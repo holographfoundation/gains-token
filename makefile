@@ -28,6 +28,12 @@ build:
 	forge build
 	@echo "\n$(GREEN)✅ Build completed successfully!$(NC)\n"
 
+
+abi:
+	@echo "\n$(YELLOW)🔨 Generating ABIs...$(NC)\n"
+	./script/generate-abis.sh
+	@echo "\n$(GREEN)✅ ABI generation completed successfully!$(NC)\n"
+
 ## build: Build the contracts
 clean:
 	@echo "$(YELLOW)🔨 Cleaning contracts...$(NC)"

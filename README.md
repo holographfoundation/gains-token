@@ -45,7 +45,7 @@ Together, these contracts ensure a smooth transition from HLG to GAINS, preservi
 ├── script
 │   ├── DeployMigrateHLGToGAINS.s.sol # Deterministic deployment via CREATE2 with versioning
 │   ├── BridgeGAINS.s.sol             # Example bridging script for GAINS tokens
-│   ├── SetPeersScript.s.sol          # Script to configure cross-chain peers
+│   ├── SetPeers.s.sol          # Script to configure cross-chain peers
 │   ├── ManageAllowlist.s.sol         # Script to manage the migration allowlist (uses batchAddToAllowlist)
 │   ├── TransferOwnership.s.sol       # Script to transfer ownership to a new address (e.g., a Gnosis Safe)
 │   └── ...
@@ -114,12 +114,12 @@ Demonstrates bridging GAINS tokens cross-chain.
 forge script script/BridgeGAINS.s.sol:BridgeGAINSScript --rpc-url <RPC> --broadcast -vvvv
 ```
 
-### SetPeersScript
+### SetPeers
 
 Configures cross-chain peer relationships so GAINS contracts trust each other across different chains.
 
 ```bash
-forge script script/SetPeersScript.s.sol:SetPeersScript --rpc-url <RPC> --broadcast -vvvv
+forge script script/SetPeers.s.sol:SetPeers --rpc-url <RPC> --broadcast -vvvv
 ```
 
 ### ManageAllowlist

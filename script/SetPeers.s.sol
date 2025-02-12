@@ -6,11 +6,11 @@ import "../src/GAINS.sol";
 import {IOAppCore} from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
 
 /**
- * @title SetPeersScript
+ * @title SetPeers
  * @notice Script to set peers for the OFT contracts across multiple chains, supporting testnet and mainnet.
  * Defaults to testnet unless "MAINNET" is set to true.
  */
-contract SetPeersScript is Script {
+contract SetPeers is Script {
     // LayerZero Endpoint IDs (EIDs)
     uint32 constant ETHEREUM_MAINNET_EID = 30101;
     uint32 constant ETHEREUM_SEPOLIA_EID = 40161;

@@ -6,10 +6,10 @@ import "../src/GAINS.sol";
 import {IOAppCore} from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
 
 /**
- * @title GetPeersScript
+ * @title GetPeers
  * @notice Script to verify peer settings for the OFT contracts across multiple chains
  */
-contract GetPeersScript is Script {
+contract GetPeers is Script {
     // LayerZero Endpoint IDs (EIDs)
     uint32 constant ETHEREUM_MAINNET_EID = 30101;
     uint32 constant ETHEREUM_SEPOLIA_EID = 40161;
